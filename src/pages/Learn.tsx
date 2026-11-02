@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
+import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.tsx'
 import OptionsPanel from '../components/OptionsPanel.tsx'
+import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
@@ -19,6 +21,9 @@ export default function Learn() {
   const [options, setOptions] = useState<StudyOptions>(DEFAULT_OPTIONS)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [sessionKey, setSessionKey] = useState(0)
+  // Code mode state lives here so an options change keeps the code and the active side.
+  const [focusSide, setFocusSide] = useState<FocusSide>('card')
+  const doc = useRef('')
 
   useEffect(() => {
     void api.sets.open(setId).catch(() => {})
@@ -62,6 +67,7 @@ export default function Learn() {
           options={options}
           paused={optionsOpen}
           onOpenOptions={() => setOptionsOpen(true)}
+          code={{ focusSide, setFocusSide, doc }}
         />
       )}
       {optionsOpen && (
@@ -80,14 +86,25 @@ export default function Learn() {
   )
 }
 
-type SessionProps = { set: SetWithCards; deck: Card[]; options: StudyOptions; paused: boolean; onOpenOptions: () => void }
+type CodeState = { focusSide: FocusSide; setFocusSide: (side: FocusSide) => void; doc: RefObject<string> }
 
-function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
+type SessionProps = {
+  set: SetWithCards
+  deck: Card[]
+  options: StudyOptions
+  paused: boolean
+  onOpenOptions: () => void
+  code: CodeState
+}
+
+function Session({ set, deck, options, paused, onOpenOptions, code }: SessionProps) {
   const [s, setS] = useState(() => learn.start(deck, options.groupSize))
   const card = learn.current(s)
+  const codeMode = set.code_mode === 1
 
   useEffect(() => {
-    if (paused) return
+    // In code mode, keys act only when the card side was used last.
+    if (paused || (codeMode && code.focusSide !== 'card')) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (e.key === ' ') {
@@ -96,8 +113,10 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
         e.preventDefault()
         if (s.phase === 'debrief') setS(learn.proceed)
         else if (s.phase === 'round') setS(learn.flip)
-      } else if (s.phase === 'round' && e.key === '1') setS(learn.sort(s, false))
-      else if (s.phase === 'round' && e.key === '2') setS(learn.sort(s, true))
+      } else if (s.phase === 'round' && (e.key === '1' || e.key === '2')) {
+        e.preventDefault()
+        setS(learn.sort(s, e.key === '2'))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -123,44 +142,85 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
   const groups = learn.segments(s)
   const round = s.phase === 'done' ? undefined : s.roundInGroup
 
+  const finished = (
+    <div className={codeMode ? 'text-center' : 'rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm'}>
+      <h2 className="mb-2 text-xl font-semibold">All groups done</h2>
+      <p className="mb-6 text-gray-600">Every card was checked.</p>
+      <div className="flex justify-center gap-3">
+        <PrimaryButton onClick={() => setS(learn.restart)}>Restart</PrimaryButton>
+        <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+          Back to the set
+        </Link>
+      </div>
+    </div>
+  )
+
+  const debrief = <Debrief s={s} options={options} plain={codeMode} onContinue={() => setS(learn.proceed)} onUndo={() => setS(learn.undo)} />
+
+  const controls = (
+    <SortControls
+      onMiss={() => setS(learn.sort(s, false))}
+      onCheck={() => setS(learn.sort(s, true))}
+      onUndo={() => setS(learn.undo)}
+      canUndo={s.results.length > 0}
+    />
+  )
+
+  const solo = s.solo && <p className="mb-3 text-center text-sm text-gray-500">One more try for this card.</p>
+
   return (
-    <StudyShell set={set} mode={s.phase === 'done' ? 'Learn' : `Learn · Group ${s.groupIndex + 1} of ${groups.length}`} round={round} actions={actions}>
+    <StudyShell
+      set={set}
+      mode={s.phase === 'done' ? 'Learn' : `Learn · Group ${s.groupIndex + 1} of ${groups.length}`}
+      round={round}
+      actions={actions}
+      wide={codeMode}
+    >
       <ProgressBar done={s.cleared.length} total={s.group.length} segments={groups} />
 
-      {s.phase === 'done' && (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="mb-2 text-xl font-semibold">All groups done</h2>
-          <p className="mb-6 text-gray-600">Every card was checked.</p>
-          <div className="flex justify-center gap-3">
-            <PrimaryButton onClick={() => setS(learn.restart)}>Restart</PrimaryButton>
-            <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
-              Back to the set
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {s.phase === 'debrief' && <Debrief s={s} options={options} onContinue={() => setS(learn.proceed)} onUndo={() => setS(learn.undo)} />}
-
-      {s.phase === 'round' && card && (
+      {codeMode ? (
+        <CodeStudyLayout
+          setId={set.id}
+          focusSide={code.focusSide}
+          onFocusSide={code.setFocusSide}
+          doc={code.doc}
+          panelKey={`${s.phase}-${s.groupIndex}-${s.roundInGroup}-${card?.id}-${s.flipped}`}
+          panel={
+            s.phase === 'done' ? (
+              finished
+            ) : s.phase === 'debrief' ? (
+              debrief
+            ) : (
+              card && (
+                <>
+                  {solo}
+                  <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(learn.flip)} />
+                </>
+              )
+            )
+          }
+          footer={s.phase === 'round' ? controls : undefined}
+        />
+      ) : (
         <>
-          {s.solo && <p className="mb-3 text-center text-sm text-gray-500">One more try for this card.</p>}
-          <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(learn.flip)} />
-          <SortControls
-            onMiss={() => setS(learn.sort(s, false))}
-            onCheck={() => setS(learn.sort(s, true))}
-            onUndo={() => setS(learn.undo)}
-            canUndo={s.results.length > 0}
-          />
+          {s.phase === 'done' && finished}
+          {s.phase === 'debrief' && debrief}
+          {s.phase === 'round' && card && (
+            <>
+              {solo}
+              <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(learn.flip)} />
+              {controls}
+            </>
+          )}
         </>
       )}
     </StudyShell>
   )
 }
 
-type DebriefProps = { s: learn.LearnState; options: StudyOptions; onContinue: () => void; onUndo: () => void }
+type DebriefProps = { s: learn.LearnState; options: StudyOptions; plain?: boolean; onContinue: () => void; onUndo: () => void }
 
-function Debrief({ s, options, onContinue, onUndo }: DebriefProps) {
+function Debrief({ s, options, plain = false, onContinue, onUndo }: DebriefProps) {
   const { checked, missed } = learn.roundSummary(s)
   const next =
     missed.length === 0
@@ -176,7 +236,7 @@ function Debrief({ s, options, onContinue, onUndo }: DebriefProps) {
           : `Continue with the ${missed.length} missed cards.`
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+    <div className={plain ? '' : 'rounded-xl border border-gray-200 bg-white p-8 shadow-sm'}>
       <h2 className="mb-1 text-center text-xl font-semibold">Round {s.roundInGroup} of group {s.groupIndex + 1}</h2>
       <p className="mb-6 text-center text-gray-600">
         {checked.length} checked, {missed.length} missed. {next}
