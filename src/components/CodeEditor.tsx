@@ -5,31 +5,40 @@ import { indentUnit } from '@codemirror/language'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Language } from '../study/languages.ts'
 
 function languageExtension(language: Language) {
   return language === 'python' ? python() : sql({ dialect: PostgreSQL })
 }
 
-type Props = { language: Language; clearToken: number }
+type Props = {
+  language: Language
+  clearToken: number
+  // The page owns the text, so the editor can remount (an options change restarts
+  // the session) without losing it.
+  doc: RefObject<string>
+}
 
-// A CodeMirror editor. The content lives in the editor and survives card changes;
-// a new clearToken empties it. The language switches in place.
-export default function CodeEditor({ language, clearToken }: Props) {
+export default function CodeEditor({ language, clearToken, doc }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
-  const langCompartment = useRef(new Compartment())
+  const [langCompartment] = useState(() => new Compartment())
+  const viewLanguage = useRef(language)
 
   useEffect(() => {
     if (!host.current) return
     const v = new EditorView({
       state: EditorState.create({
+        doc: doc.current,
         extensions: [
           basicSetup,
           keymap.of([indentWithTab]),
           indentUnit.of('    '),
-          langCompartment.current.of(languageExtension(language)),
+          langCompartment.of(languageExtension(viewLanguage.current)),
+          EditorView.updateListener.of((u) => {
+            if (u.docChanged) doc.current = u.state.doc.toString()
+          }),
           EditorView.theme({ '&': { height: '100%' } }),
         ],
       }),
@@ -40,13 +49,13 @@ export default function CodeEditor({ language, clearToken }: Props) {
       v.destroy()
       view.current = null
     }
-    // The language and clear token are handled by the effects below.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [doc, langCompartment])
 
   useEffect(() => {
-    view.current?.dispatch({ effects: langCompartment.current.reconfigure(languageExtension(language)) })
-  }, [language])
+    if (!view.current || viewLanguage.current === language) return
+    viewLanguage.current = language
+    view.current.dispatch({ effects: langCompartment.reconfigure(languageExtension(language)) })
+  }, [language, langCompartment])
 
   useEffect(() => {
     if (clearToken === 0 || !view.current) return

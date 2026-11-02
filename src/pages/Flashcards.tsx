@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
@@ -22,6 +22,8 @@ export default function Flashcards() {
   const [optionsOpen, setOptionsOpen] = useState(false)
   // Changing the deck or the front side starts a new session; the key remounts it.
   const [sessionKey, setSessionKey] = useState(0)
+  const [focusSide, setFocusSide] = useState<FocusSide>('card')
+  const doc = useRef('')
 
   useEffect(() => {
     void api.sets.open(setId).catch(() => {})
@@ -65,6 +67,7 @@ export default function Flashcards() {
           options={options}
           paused={optionsOpen}
           onOpenOptions={() => setOptionsOpen(true)}
+          code={{ focusSide, setFocusSide, doc }}
         />
       )}
       {optionsOpen && (
@@ -82,15 +85,25 @@ export default function Flashcards() {
   )
 }
 
-type SessionProps = { set: SetWithCards; deck: Card[]; options: StudyOptions; paused: boolean; onOpenOptions: () => void }
+// Code mode state owned by the page, so an options change (which restarts the
+// session) keeps the code and the active side.
+type CodeState = { focusSide: FocusSide; setFocusSide: (side: FocusSide) => void; doc: RefObject<string> }
 
-function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
+type SessionProps = {
+  set: SetWithCards
+  deck: Card[]
+  options: StudyOptions
+  paused: boolean
+  onOpenOptions: () => void
+  code: CodeState
+}
+
+function Session({ set, deck, options, paused, onOpenOptions, code }: SessionProps) {
   const [s, setS] = useState(() => fc.start(deck))
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
   const over = fc.roundOver(s)
   const codeMode = set.code_mode === 1
-  const [focusSide, setFocusSide] = useState<FocusSide>('card')
 
   // Stats calls go out one after another, so a sort and its undo cannot arrive out of
   // order. A sort that failed is remembered; its undo is not sent.
@@ -130,8 +143,8 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
   }
 
   useEffect(() => {
-    // In code mode, keys act only when the card side was clicked last.
-    if (paused || (codeMode && focusSide !== 'card')) return
+    // In code mode, keys act only when the card side was used last.
+    if (paused || (codeMode && code.focusSide !== 'card')) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (e.key === ' ') {
@@ -141,8 +154,11 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
         e.preventDefault()
         if (over) setS(fc.nextRound)
         else setS(fc.flip)
-      } else if (e.key === '1') sort(false)
-      else if (e.key === '2') sort(true)
+      } else if (e.key === '1' || e.key === '2') {
+        // Also stops the digit from reaching the editor when it still has DOM focus.
+        e.preventDefault()
+        sort(e.key === '2')
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -198,8 +214,10 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
       {codeMode ? (
         <CodeStudyLayout
           setId={set.id}
-          focusSide={focusSide}
-          onFocusSide={setFocusSide}
+          focusSide={code.focusSide}
+          onFocusSide={code.setFocusSide}
+          doc={code.doc}
+          panelKey={over ? `over-${s.round}` : `${card?.id}-${s.flipped}`}
           panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />}
           footer={over ? undefined : controls}
         />
