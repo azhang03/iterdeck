@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import Layout from './components/Layout.tsx'
 import Home from './pages/Home.tsx'
 import Folders from './pages/Folders.tsx'
 import Sets from './pages/Sets.tsx'
@@ -11,12 +12,14 @@ import Learn from './pages/Learn.tsx'
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/folders" element={<Folders />} />
-      <Route path="/sets" element={<Sets />} />
-      <Route path="/folders/:id" element={<Folder />} />
-      <Route path="/sets/:id" element={<Set />} />
-      <Route path="/sets/:id/edit" element={<Editor />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/folders" element={<Folders />} />
+        <Route path="/sets" element={<Sets />} />
+        <Route path="/folders/:id" element={<Folder />} />
+        <Route path="/sets/:id" element={<Set />} />
+        <Route path="/sets/:id/edit" element={<Editor />} />
+      </Route>
       <Route path="/sets/:id/flashcards" element={<Flashcards />} />
       <Route path="/sets/:id/learn" element={<Learn />} />
     </Routes>
