@@ -13,6 +13,7 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]): Async<T> {
   useEffect(() => {
     let live = true
     setLoading(true)
+    setError(null)
     load().then(
       (d) => {
         if (!live) return
@@ -22,6 +23,7 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]): Async<T> {
       },
       (e: unknown) => {
         if (!live) return
+        setData(null)
         setError(e instanceof Error ? e.message : String(e))
         setLoading(false)
       },

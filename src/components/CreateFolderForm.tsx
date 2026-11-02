@@ -7,6 +7,7 @@ type Props = { onCreated: (folder: Folder) => void; onCancel: () => void }
 export default function CreateFolderForm({ onCreated, onCancel }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -14,10 +15,12 @@ export default function CreateFolderForm({ onCreated, onCancel }: Props) {
       setError('Enter a name.')
       return
     }
+    setBusy(true)
     try {
       onCreated(await api.folders.create(name.trim()))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
     }
   }
 
@@ -34,8 +37,10 @@ export default function CreateFolderForm({ onCreated, onCancel }: Props) {
         />
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       </div>
-      <PrimaryButton type="submit">Create</PrimaryButton>
-      <button type="button" onClick={onCancel} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+      <PrimaryButton type="submit" disabled={busy}>
+        Create
+      </PrimaryButton>
+      <button type="button" onClick={onCancel} disabled={busy} className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50">
         Cancel
       </button>
     </form>
