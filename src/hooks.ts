@@ -29,6 +29,8 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[]): Async<T> {
     return () => {
       live = false
     }
+    // The caller lists the deps that change the result; load itself is a new closure each render.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
