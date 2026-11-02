@@ -1,14 +1,10 @@
-import express from 'express'
+import { join } from 'node:path'
+import { createApp } from './app.ts'
+import { openDb } from './db.ts'
 import { DATA_DIR } from './paths.ts'
 
-const app = express()
-app.use(express.json())
-
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
-})
-
-app.use('/images', express.static(`${DATA_DIR}/images`))
+const db = openDb(join(DATA_DIR, 'iterdeck.db'))
+const app = createApp(db, join(DATA_DIR, 'images'))
 
 const port = Number(process.env.PORT ?? 3001)
 app.listen(port, () => {
