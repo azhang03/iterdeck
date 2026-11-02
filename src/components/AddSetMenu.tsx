@@ -54,13 +54,17 @@ export default function AddSetMenu({ folder, onClose, onAdded, onCreateNew }: Pr
           </button>
         ))}
         {sets.data && candidates.length === 0 && (
-          <p className="px-3 py-2 text-sm text-gray-500">{query ? 'No sets match.' : 'Every set is already in this folder.'}</p>
+          <p className="px-3 py-2 text-sm text-gray-500">
+            {query ? 'No sets match.' : sets.data.length === 0 ? 'No sets yet.' : 'Every set is already in this folder.'}
+          </p>
         )}
       </div>
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
       <div className="flex justify-between">
-        <PrimaryButton onClick={onCreateNew}>Create new set</PrimaryButton>
-        <button type="button" onClick={onClose} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+        <PrimaryButton onClick={onCreateNew} disabled={busyId !== null}>
+          Create new set
+        </PrimaryButton>
+        <button type="button" onClick={onClose} disabled={busyId !== null} className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50">
           Close
         </button>
       </div>
