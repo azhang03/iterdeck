@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card } from '../api.ts'
-import { current, proceed, restart, roundSummary, segments, shuffle, sort, start, undo, type LearnState } from './learn.ts'
+import { canShuffle, current, proceed, restart, roundSummary, segments, shuffle, sort, start, undo, type LearnState } from './learn.ts'
 
 function card(id: number): Card {
   return {
@@ -139,6 +139,19 @@ describe('one-card rule', () => {
     s = proceed(playRound(s, []))
     expect(s.phase).toBe('done')
   })
+
+  it('with n 1, a carried card still gets one new card in its next group', () => {
+    let s = start(deck(3), 1)
+    expect(ids(s.group)).toEqual([1])
+    s = proceed(playRound(s, [1]))
+    s = proceed(playRound(s, [1]))
+    expect(ids(s.group)).toEqual([2, 1])
+    expect(s.groupIndex).toBe(1)
+    s = proceed(playRound(s, []))
+    expect(ids(s.group)).toEqual([3])
+    s = proceed(playRound(s, []))
+    expect(s.phase).toBe('done')
+  })
 })
 
 describe('undo and shuffle', () => {
@@ -156,12 +169,47 @@ describe('undo and shuffle', () => {
     expect(undo(s)).toBe(s)
   })
 
-  it('shuffle reorders only the cards not yet grouped', () => {
+  it('shuffle before the first sort mixes the group with the cards not yet grouped', () => {
     let s = start(deck(14), 7)
+    expect(canShuffle(s)).toBe(true)
     s = shuffle(s, () => 0)
+    const all = [...ids(s.group), ...ids(s.remaining)].sort((a, b) => a - b)
+    expect(all).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+    expect(ids(s.group)).not.toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(ids(s.queue)).toEqual(ids(s.group))
+    expect(s.group).toHaveLength(7)
+  })
+
+  it('shuffle before the first sort keeps a carried card last in its group', () => {
+    let s = start(deck(14), 7)
+    s = proceed(playRound(s, [5]))
+    s = proceed(playRound(s, [5]))
+    s = shuffle(s, () => 0.5)
+    expect(s.group[6].id).toBe(5)
+    const others = ids(s.group).slice(0, 6)
+    expect(others.every((id) => id >= 8 && id <= 14)).toBe(true)
+    expect([...others, ...ids(s.remaining)].sort((a, b) => a - b)).toEqual([8, 9, 10, 11, 12, 13, 14])
+  })
+
+  it('shuffle after a sort moves only the unsorted part of the round and the cards not yet grouped', () => {
+    let s = start(deck(14), 7)
+    s = sort(s, true)
+    s = sort(s, false)
+    let n = 0
+    const rng = () => [0.9, 0.1, 0.5, 0.3, 0.7][n++ % 5]
+    s = shuffle(s, rng)
+    expect(ids(s.queue).slice(0, 2)).toEqual([1, 2])
+    expect(ids(s.queue).slice(2).sort((a, b) => a - b)).toEqual([3, 4, 5, 6, 7])
+    expect(ids(s.queue).slice(2)).not.toEqual([3, 4, 5, 6, 7])
     expect(ids(s.group)).toEqual([1, 2, 3, 4, 5, 6, 7])
-    expect(ids(s.remaining).sort((a, b) => a - b)).toEqual([8, 9, 10, 11, 12, 13, 14])
-    expect(ids(s.remaining)).not.toEqual([8, 9, 10, 11, 12, 13, 14])
+    expect(s.results).toHaveLength(2)
+  })
+
+  it('canShuffle is false in the debrief and when nothing can move', () => {
+    let s = start(deck(1), 7)
+    expect(canShuffle(s)).toBe(false)
+    s = sort(s, false)
+    expect(canShuffle(s)).toBe(false)
   })
 
   it('restart returns to the first group', () => {

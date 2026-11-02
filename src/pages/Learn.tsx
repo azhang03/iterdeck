@@ -108,8 +108,8 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
       <button
         type="button"
         onClick={() => setS(learn.shuffle)}
-        disabled={s.remaining.length < 2}
-        title="Shuffle the cards not yet reached"
+        disabled={!learn.canShuffle(s)}
+        title="Shuffle the cards still to come"
         className="rounded px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
       >
         Shuffle

@@ -24,6 +24,7 @@ export type LearnState = {
   roundInGroup: number // 1 for the first round of a group
   solo: boolean // this round is the one-card second chance
   carry: Card | null // a card that goes to the end of the next group
+  carried: number | null // id of the card carried into the current group, if any
   phase: Phase
 }
 
@@ -44,6 +45,7 @@ export function start(deck: Card[], n: number): LearnState {
     roundInGroup: 0,
     solo: false,
     carry: null,
+    carried: null,
     phase: 'done',
   }
   return deck.length === 0 ? base : nextGroup(base)
@@ -81,14 +83,36 @@ export function undo(s: LearnState): LearnState {
   }
 }
 
-// Shuffles the cards not yet placed in a group. The current group keeps its order.
-export function shuffle(s: LearnState, rng: () => number = Math.random): LearnState {
-  const rest = [...s.remaining]
-  for (let i = rest.length - 1; i > 0; i--) {
+function shuffled<T>(items: T[], rng: () => number): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1))
-    ;[rest[i], rest[j]] = [rest[j], rest[i]]
+    ;[out[i], out[j]] = [out[j], out[i]]
   }
-  return { ...s, remaining: rest }
+  return out
+}
+
+// Shuffles what is still to come. Before the first sort of a group, the group and the
+// cards not yet grouped mix together (a carried card stays last in the group). Later,
+// the unsorted part of the round and the cards not yet grouped shuffle separately.
+export function shuffle(s: LearnState, rng: () => number = Math.random): LearnState {
+  if (s.phase !== 'round') return s
+  if (s.roundInGroup === 1 && s.results.length === 0) {
+    const carried = s.group.find((c) => c.id === s.carried) ?? null
+    const pool = shuffled([...s.group.filter((c) => c !== carried), ...s.remaining], rng)
+    const size = s.group.length - (carried ? 1 : 0)
+    const group = carried ? [...pool.slice(0, size), carried] : pool.slice(0, size)
+    return { ...s, group, queue: group, remaining: pool.slice(size), flipped: false }
+  }
+  const queue = [...s.queue.slice(0, s.index), ...shuffled(s.queue.slice(s.index), rng)]
+  return { ...s, queue, remaining: shuffled(s.remaining, rng), flipped: false }
+}
+
+// True when shuffle would change anything.
+export function canShuffle(s: LearnState): boolean {
+  if (s.phase !== 'round') return false
+  if (s.roundInGroup === 1 && s.results.length === 0) return s.group.length + s.remaining.length > 1
+  return s.queue.length - s.index > 1 || s.remaining.length > 1
 }
 
 export function missed(s: LearnState): Card[] {
@@ -124,12 +148,22 @@ function round(s: LearnState, queue: Card[], solo: boolean): LearnState {
 }
 
 function nextGroup(s: LearnState): LearnState {
-  const take = s.carry ? s.n - 1 : s.n
+  // A carried card takes one place of the next group, but the group always gets at least one new card.
+  const take = s.carry ? Math.max(1, s.n - 1) : s.n
   const fresh = s.remaining.slice(0, take)
   const group = s.carry ? [...fresh, s.carry] : fresh
   if (group.length === 0) return { ...s, group: [], queue: [], results: [], cleared: [], carry: null, phase: 'done' }
   return round(
-    { ...s, remaining: s.remaining.slice(take), group, groupIndex: s.groupIndex + 1, cleared: [], roundInGroup: 0, carry: null },
+    {
+      ...s,
+      remaining: s.remaining.slice(take),
+      group,
+      groupIndex: s.groupIndex + 1,
+      cleared: [],
+      roundInGroup: 0,
+      carry: null,
+      carried: s.carry?.id ?? null,
+    },
     group,
     false,
   )
