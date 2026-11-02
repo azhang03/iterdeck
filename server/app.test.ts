@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { Server } from 'node:http'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
+import { sweepOrphanImages } from './images.ts'
 import { openDb, type Db } from './db.ts'
 import type { Card, CardSet, Folder, Image, SetWithCards } from '../shared/types.ts'
 
@@ -278,5 +279,30 @@ describe('images', () => {
     expect(withImage.cards[0].term_image_id).toBe(img.id)
     expect(withImage.cards[0].term_image_url).toBe(`/images/${img.file}`)
     expect(withImage.cards[0].definition_image_url).toBeNull()
+  })
+})
+
+describe('orphan image sweep', () => {
+  it('removes old unreferenced images and keeps referenced or recent ones', async () => {
+    const upload = async () => {
+      const form = new FormData()
+      form.append('file', new Blob([Buffer.from('89504e470d0a1a0a', 'hex')], { type: 'image/png' }), 'x.png')
+      return (await call<Image>('POST', '/api/images', form)).data
+    }
+    const used = await upload()
+    const oldOrphan = await upload()
+    const recentOrphan = await upload()
+    const s = await makeSet('s')
+    await putCards(s.id, [{ term: 'a', definition: '', term_image_id: used.id }])
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    setClock('images', used.id, 'created_at', twoDaysAgo)
+    setClock('images', oldOrphan.id, 'created_at', twoDaysAgo)
+
+    const removed = await sweepOrphanImages(db, join(dir, 'images'))
+    expect(removed).toBe(1)
+    const left = db.prepare('SELECT id FROM images ORDER BY id').all() as { id: number }[]
+    expect(left.map((r) => r.id)).toEqual([used.id, recentOrphan.id])
+    expect(existsSync(join(dir, 'images', oldOrphan.file))).toBe(false)
+    expect(existsSync(join(dir, 'images', used.file))).toBe(true)
   })
 })

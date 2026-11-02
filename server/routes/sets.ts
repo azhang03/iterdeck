@@ -4,8 +4,9 @@ import { now } from '../db.ts'
 import type { Card, CardInput, CardSet } from '../../shared/types.ts'
 import { BadRequest, NotFound, bool, id, idOrNull, listSort, nonEmptyText, orderBy, query, text } from '../validate.ts'
 import { getFolder, like } from './folders.ts'
+import { sweepOrphanImages } from '../images.ts'
 
-export function setsRouter(db: Db) {
+export function setsRouter(db: Db, imagesDir: string) {
   const r = Router()
 
   r.get('/', (req, res) => {
@@ -82,6 +83,7 @@ export function setsRouter(db: Db) {
     const inputs = req.body.map(cardInput)
     replaceCards(db, setId, inputs)
     res.json({ ...getSet(db, setId), cards: getCards(db, setId) })
+    void sweepOrphanImages(db, imagesDir)
   })
 
   r.delete('/:id', (req, res) => {

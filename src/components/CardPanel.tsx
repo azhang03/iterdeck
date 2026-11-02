@@ -11,12 +11,13 @@ type Props = {
   onChange: (patch: Partial<EditorCard>) => void
   onFocused: () => void
   onDelete: () => void
+  isLast: boolean
   onTabOut: () => void
 }
 
 const area = 'w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
 
-export default function CardPanel({ card, index, focusTerm, onChange, onFocused, onDelete, onTabOut }: Props) {
+export default function CardPanel({ card, index, focusTerm, isLast, onChange, onFocused, onDelete, onTabOut }: Props) {
   const termRef = useRef<HTMLTextAreaElement>(null)
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: card.key })
 
@@ -26,8 +27,9 @@ export default function CardPanel({ card, index, focusTerm, onChange, onFocused,
     onFocused()
   }, [focusTerm, onFocused])
 
+  // Tab out of the last definition adds a card. Elsewhere Tab keeps the browser default.
   function onDefinitionKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Tab' && !e.shiftKey) {
+    if (isLast && e.key === 'Tab' && !e.shiftKey) {
       e.preventDefault()
       onTabOut()
     }

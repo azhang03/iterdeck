@@ -1,20 +1,20 @@
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { api, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import CardPanel from '../components/CardPanel.tsx'
 import { Status } from '../components/Cards.tsx'
-import { blankCard, fromCards, sameContent, swapSides, toInputs, type EditorCard } from '../editor/cards.ts'
+import { blankCard, fromCards, isEmpty, sameContent, swapSides, toInputs, type EditorCard } from '../editor/cards.ts'
 import { useAsync } from '../hooks.ts'
 
 export default function Editor() {
   const { id } = useParams()
   const setId = Number(id)
   const loaded = useAsync(() => api.sets.get(setId), [setId])
-  if (!loaded.data) return <Status error={loaded.error} loading={loaded.loading} />
-  return <EditorForm key={setId} initial={loaded.data} />
+  if (!loaded.data || loaded.data.id !== setId) return <Status error={loaded.error} loading={loaded.loading} />
+  return <EditorForm key={loaded.data.id} initial={loaded.data} />
 }
 
 function EditorForm({ initial }: { initial: SetWithCards }) {
@@ -32,7 +32,9 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
 
   const dirty = title !== saved.title || !sameContent(saved.cards, cards)
 
-  const blocker = useBlocker(dirty && !saving)
+  // Done sets this after a successful save, so its own navigation is not blocked.
+  const leaving = useRef(false)
+  const blocker = useBlocker(() => dirty && !leaving.current)
   useEffect(() => {
     if (blocker.state !== 'blocked') return
     if (window.confirm('You have unsaved changes. Leave without saving?')) blocker.proceed()
@@ -48,17 +50,23 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  // Sends the current content. The response gives new cards their ids; the local
+  // list is kept as is (with its keys and any typing done meanwhile), not replaced.
   async function save(): Promise<boolean> {
     setSaving(true)
     setError(null)
+    const sentTitle = title
+    const cleanTitle = sentTitle.trim() || saved.title
+    const sent = cards.filter((c) => !isEmpty(c))
     try {
-      const cleanTitle = title.trim() || saved.title
       if (cleanTitle !== saved.title) await api.sets.update(initial.id, { title: cleanTitle })
-      const result = await api.sets.replaceCards(initial.id, toInputs(cards))
-      const fresh = fromCards(result.cards)
-      setTitle(cleanTitle)
-      setSaved({ title: cleanTitle, cards: fresh })
-      setCards(fresh.length ? fresh : [blankCard()])
+      const result = await api.sets.replaceCards(initial.id, toInputs(sent))
+      // The server returns the cards in the order sent.
+      const idByKey = new Map(sent.map((c, i) => [c.key, result.cards[i].id]))
+      const withIds = (cs: EditorCard[]) => cs.map((c) => (idByKey.has(c.key) ? { ...c, id: idByKey.get(c.key) } : c))
+      setCards(withIds)
+      setSaved({ title: cleanTitle, cards: withIds(sent) })
+      setTitle((t) => (t === sentTitle ? cleanTitle : t))
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -69,7 +77,9 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
   }
 
   async function done() {
-    if (!dirty || (await save())) navigate(`/sets/${initial.id}`)
+    if (dirty && !(await save())) return
+    leaving.current = true
+    navigate(`/sets/${initial.id}`)
   }
 
   useEffect(() => {
@@ -152,10 +162,8 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
             onChange={(patch) => update(card.key, patch)}
             onFocused={clearFocus}
             onDelete={() => remove(card.key)}
-            onTabOut={() => {
-              if (i === cards.length - 1) addCard()
-              else setFocusKey(cards[i + 1].key)
-            }}
+            isLast={i === cards.length - 1}
+            onTabOut={addCard}
           />
         ))}
           </div>
