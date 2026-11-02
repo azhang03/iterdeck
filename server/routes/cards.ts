@@ -39,7 +39,7 @@ export function cardsRouter(db: Db) {
     const delta = undo ? -1 : 1
     const sorted = card.sorted_count + delta
     const checkedCount = card.checked_count + (checked ? delta : 0)
-    if (sorted < 0 || checkedCount < 0) throw new BadRequest('nothing to undo')
+    if (sorted < 0 || checkedCount < 0 || checkedCount > sorted) throw new BadRequest('nothing to undo')
     db.prepare('UPDATE cards SET sorted_count = ?, checked_count = ? WHERE id = ?').run(sorted, checkedCount, cardId)
     res.json(getCard(db, cardId))
   })

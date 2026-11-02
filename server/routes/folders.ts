@@ -25,11 +25,11 @@ export function foldersRouter(db: Db) {
 
   r.get('/:id', (req, res) => {
     const folderId = id(req.params.id, 'id')
+    const sort = listSort(req.query.sort)
+    const q = query(req.query.q)
     getFolder(db, folderId)
     db.prepare('UPDATE folders SET last_used_at = ? WHERE id = ?').run(now(), folderId)
     const folder = getFolder(db, folderId)
-    const sort = listSort(req.query.sort)
-    const q = query(req.query.q)
     const sets = db
       .prepare(`SELECT * FROM sets WHERE folder_id = ? AND title LIKE ? ESCAPE '\\' ORDER BY ${orderBy(sort, 'title')}`)
       .all(folderId, like(q)) as CardSet[]

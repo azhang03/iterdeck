@@ -20,9 +20,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   const res = await fetch(path, init)
   if (res.status === 204) return undefined as T
-  const data = await res.json().catch(() => ({ error: res.statusText }))
-  if (!res.ok) throw new ApiError(res.status, data.error ?? res.statusText)
-  return data as T
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, data.error ?? res.statusText)
+  }
+  return (await res.json()) as T
 }
 
 function listQuery(opts: { sort?: ListSort; q?: string; folder?: number | 'none' }): string {

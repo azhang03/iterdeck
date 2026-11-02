@@ -7,6 +7,7 @@ const db = openDb(join(DATA_DIR, 'iterdeck.db'))
 const app = createApp(db, join(DATA_DIR, 'images'))
 
 const port = Number(process.env.PORT ?? 3001)
-app.listen(port, () => {
+app.listen(port, (err) => {
+  if (err) throw err
   console.log(`API on http://localhost:${port}, data in ${DATA_DIR}`)
 })

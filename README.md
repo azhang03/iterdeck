@@ -4,7 +4,7 @@ Flashcards in the style of Quizlet, with a code mode that shows a card as a codi
 
 ## Run
 
-Needs Node 20 or newer.
+Needs Node 20.19 or newer, or 22.12 or newer.
 
 ```
 npm install
@@ -23,9 +23,13 @@ All data lives in `data/` at the repo root (git-ignored): `data/iterdeck.db` (SQ
 
 - `src/` is the client (React, Vite, TypeScript, Tailwind, React Router).
   - `pages/` has one file per route.
-  - `components/` has shared UI.
-  - `study/` has the round logic for Flashcards and Learn, without React.
   - `api.ts` has typed fetch helpers for the API.
+- `shared/types.ts` has the row types that the client and the server share.
 - `server/` is the API (Express, better-sqlite3).
-  - `index.ts` starts the app and serves `/images`.
+  - `index.ts` opens the database and starts the app.
+  - `app.ts` builds the Express app: routes, static `/images`, the error handler.
+  - `db.ts` opens the SQLite file and runs `schema.sql`.
+  - `validate.ts` has the request checks and the error classes.
+  - `routes/` has one file per resource: folders, sets, cards, images.
   - `paths.ts` resolves the data folder.
+  - `app.test.ts` runs the routes against a temp database.

@@ -136,6 +136,7 @@ function replaceCards(db: Db, setId: number, inputs: CardInput[]) {
         if (imageId !== null && !imageExists.get(imageId)) throw new BadRequest(`card ${position}: image ${imageId} not found`)
       }
       if (c.id !== undefined) {
+        if (keep.includes(c.id)) throw new BadRequest(`card ${position}: card ${c.id} is listed twice`)
         const changed = update.run(position, c.term, c.definition, c.term_image_id, c.definition_image_id, c.id, setId).changes
         if (changed === 0) throw new BadRequest(`card ${position}: card ${c.id} is not in this set`)
         keep.push(c.id)

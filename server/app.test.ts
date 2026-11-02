@@ -196,6 +196,18 @@ describe('card replace', () => {
     expect(r.status).toBe(400)
   })
 
+  it('rejects the same card id twice', async () => {
+    const s = await makeSet('s')
+    const card = (await putCards(s.id, [{ term: 'a', definition: '' }])).cards[0]
+    const r = await call('PUT', `/api/sets/${s.id}/cards`, [
+      { id: card.id, term: 'x', definition: '' },
+      { id: card.id, term: 'y', definition: '' },
+    ])
+    expect(r.status).toBe(400)
+    const after = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data
+    expect(after.cards.map((c) => [c.term, c.position])).toEqual([['a', 0]])
+  })
+
   it('an empty list clears the set', async () => {
     const s = await makeSet('s')
     await putCards(s.id, [{ term: 'a', definition: '' }])
@@ -215,6 +227,14 @@ describe('card sort counters', () => {
     expect((await sort(false, true)).data).toMatchObject({ sorted_count: 1, checked_count: 1 })
     expect((await sort(true, true)).data).toMatchObject({ sorted_count: 0, checked_count: 0 })
     expect((await sort(true, true)).status).toBe(400)
+  })
+
+  it('rejects an undo that would put checked above sorted', async () => {
+    const s = await makeSet('s')
+    const card = (await putCards(s.id, [{ term: 'a', definition: '' }])).cards[0]
+    await call('POST', `/api/cards/${card.id}/sort`, { checked: true })
+    const r = await call<Card>('POST', `/api/cards/${card.id}/sort`, { checked: false, undo: true })
+    expect(r.status).toBe(400)
   })
 
   it('rejects a non-boolean checked', async () => {
