@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type { Db } from '../db.ts'
 import type { Card } from '../../shared/types.ts'
 import { BadRequest, NotFound, bool, id, text } from '../validate.ts'
+import { getCard as findCard } from './sets.ts'
 
 export function cardsRouter(db: Db) {
   const r = Router()
@@ -48,7 +49,7 @@ export function cardsRouter(db: Db) {
 }
 
 function getCard(db: Db, cardId: number): Card {
-  const row = db.prepare('SELECT * FROM cards WHERE id = ?').get(cardId) as Card | undefined
+  const row = findCard(db, cardId)
   if (!row) throw new NotFound('card')
   return row
 }

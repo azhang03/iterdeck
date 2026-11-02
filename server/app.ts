@@ -14,7 +14,7 @@ export function createApp(db: Db, imagesDir: string) {
     res.json({ ok: true })
   })
   app.use('/api/folders', foldersRouter(db))
-  app.use('/api/sets', setsRouter(db))
+  app.use('/api/sets', setsRouter(db, imagesDir))
   app.use('/api/cards', cardsRouter(db))
   app.use('/api/images', imagesRouter(db, imagesDir))
   app.use('/images', express.static(imagesDir))
