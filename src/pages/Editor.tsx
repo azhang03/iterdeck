@@ -1,10 +1,12 @@
+import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useCallback, useEffect, useState } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { api, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import CardPanel from '../components/CardPanel.tsx'
 import { Status } from '../components/Cards.tsx'
-import { blankCard, fromCards, sameContent, toInputs, type EditorCard } from '../editor/cards.ts'
+import { blankCard, fromCards, sameContent, swapSides, toInputs, type EditorCard } from '../editor/cards.ts'
 import { useAsync } from '../hooks.ts'
 
 export default function Editor() {
@@ -100,6 +102,14 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
 
   const clearFocus = useCallback(() => setFocusKey(null), [])
 
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
+
+  function onDragEnd(e: DragEndEvent) {
+    const over = e.over
+    if (!over || over.id === e.active.id) return
+    setCards((cs) => arrayMove(cs, cs.findIndex((c) => c.key === e.active.id), cs.findIndex((c) => c.key === over.id)))
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -124,8 +134,15 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
         </PrimaryButton>
       </div>
       {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      <div className="mb-4 flex justify-end">
+        <button type="button" onClick={() => setCards(swapSides)} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+          Swap terms and definitions
+        </button>
+      </div>
 
-      <div className="space-y-4">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={cards.map((c) => c.key)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-4">
         {cards.map((card, i) => (
           <CardPanel
             key={card.key}
@@ -141,7 +158,9 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
             }}
           />
         ))}
-      </div>
+          </div>
+        </SortableContext>
+      </DndContext>
 
       <button
         type="button"
