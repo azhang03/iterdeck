@@ -23,9 +23,11 @@ export default function CreateSetDialog({ onClose, initialFolder = null }: Props
   const [busy, setBusy] = useState(false)
   const query = useDebounced(q.trim(), 200)
   const folders = useAsync(() => api.folders.list({ sort, q: query }), [sort, query])
-  const mounted = useRef(true)
-
+  // Skips navigation when the dialog was closed while the request ran. Set on
+  // every mount: StrictMode runs mount, cleanup, mount in development.
+  const mounted = useRef(false)
   useEffect(() => {
+    mounted.current = true
     return () => {
       mounted.current = false
     }
