@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
@@ -87,28 +87,51 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
   const card = fc.current(s)
   const over = fc.roundOver(s)
 
-  function record(cardId: number, checked: boolean, undo = false) {
-    api.cards.sort(cardId, checked, undo).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+  // Stats calls go out one after another, so a sort and its undo cannot arrive out of
+  // order. A sort that failed is remembered; its undo is not sent.
+  const chain = useRef(Promise.resolve())
+  const failed = useRef(new Set<number>())
+
+  function record(index: number, cardId: number, checked: boolean, undo = false) {
+    chain.current = chain.current.then(async () => {
+      if (undo && failed.current.delete(index)) return
+      try {
+        await api.cards.sort(cardId, checked, undo)
+        setError(null)
+      } catch (err) {
+        if (!undo) failed.current.add(index)
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    })
   }
 
   function sort(checked: boolean) {
     if (!card) return
-    record(card.id, checked)
+    record(s.index, card.id, checked)
     setS(fc.sort(s, checked))
   }
 
   function undo() {
     const { state, undone } = fc.undo(s)
     if (!undone) return
-    record(undone.cardId, undone.checked, true)
+    record(state.index, undone.cardId, undone.checked, true)
     setS(state)
+  }
+
+  function restart() {
+    failed.current.clear()
+    setError(null)
+    setS(fc.restart)
   }
 
   useEffect(() => {
     if (paused) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (e.key === ' ') {
+        // Space on a focused button or link presses it; the card button flips through its own click.
+        const t = e.target
+        if (t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return
         e.preventDefault()
         if (over) setS(fc.nextRound)
         else setS(fc.flip)
@@ -145,7 +168,7 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
           </p>
           {fc.done(s) ? (
             <div className="flex justify-center gap-3">
-              <PrimaryButton onClick={() => setS(fc.restart)}>Restart</PrimaryButton>
+              <PrimaryButton onClick={restart}>Restart</PrimaryButton>
               <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
                 Back to the set
               </Link>
