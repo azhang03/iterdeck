@@ -5,6 +5,7 @@ import { PrimaryButton } from '../components/Button.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
 import OptionsPanel from '../components/OptionsPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
+import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
 import { useAsync } from '../hooks.ts'
@@ -189,34 +190,7 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
         card && (
           <>
             <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />
-            <div className="mt-6 flex items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={() => sort(false)}
-                aria-label="Mark as missed (1)"
-                className="h-14 w-14 rounded-full border-2 border-red-400 text-2xl text-red-600 hover:bg-red-50"
-              >
-                {'\u2715'}
-              </button>
-              <button
-                type="button"
-                onClick={undo}
-                disabled={s.results.length === 0}
-                aria-label="Undo last card"
-                className="rounded px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-40"
-              >
-                Undo
-              </button>
-              <button
-                type="button"
-                onClick={() => sort(true)}
-                aria-label="Mark as checked (2)"
-                className="h-14 w-14 rounded-full border-2 border-green-500 text-2xl text-green-700 hover:bg-green-50"
-              >
-                {'\u2713'}
-              </button>
-            </div>
-            <p className="mt-4 text-center text-xs text-gray-500">Space flips, 1 marks missed, 2 marks checked.</p>
+            <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
           </>
         )
       )}
