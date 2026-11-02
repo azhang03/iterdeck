@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { Db } from '../db.ts'
 import { now } from '../db.ts'
-import type { Card, CardInput, CardSet } from '../../shared/types.ts'
+import type { Card, CardInput, CardSet, SetWithCards } from '../../shared/types.ts'
 import { BadRequest, NotFound, bool, id, idOrNull, listSort, nonEmptyText, orderBy, query, text } from '../validate.ts'
 import { getFolder, like } from './folders.ts'
 import { sweepOrphanImages } from '../images.ts'
@@ -37,13 +37,7 @@ export function setsRouter(db: Db, imagesDir: string) {
   })
 
   r.get('/:id', (req, res) => {
-    const setId = id(req.params.id, 'id')
-    const set = getSet(db, setId)
-    const folder =
-      set.folder_id === null
-        ? null
-        : ((db.prepare('SELECT id, name FROM folders WHERE id = ?').get(set.folder_id) as { id: number; name: string } | undefined) ?? null)
-    res.json({ ...set, folder, cards: getCards(db, setId) })
+    res.json(setWithCards(db, id(req.params.id, 'id')))
   })
 
   r.post('/:id/open', (req, res) => {
@@ -86,7 +80,7 @@ export function setsRouter(db: Db, imagesDir: string) {
     if (!Array.isArray(req.body)) throw new BadRequest('body must be an array of cards')
     const inputs = req.body.map(cardInput)
     replaceCards(db, setId, inputs)
-    res.json({ ...getSet(db, setId), cards: getCards(db, setId) })
+    res.json(setWithCards(db, setId))
     void sweepOrphanImages(db, imagesDir)
   })
 
@@ -118,6 +112,16 @@ const CARD_SELECT = `
 
 export function getCards(db: Db, setId: number): Card[] {
   return db.prepare(`${CARD_SELECT} WHERE c.set_id = ? ORDER BY c.position, c.id`).all(setId) as Card[]
+}
+
+// The set, the folder it is in (id and name, or null), and its cards.
+function setWithCards(db: Db, setId: number): SetWithCards {
+  const set = getSet(db, setId)
+  const folder =
+    set.folder_id === null
+      ? null
+      : ((db.prepare('SELECT id, name FROM folders WHERE id = ?').get(set.folder_id) as SetWithCards['folder']) ?? null)
+  return { ...set, folder, cards: getCards(db, setId) }
 }
 
 export function getCard(db: Db, cardId: number): Card | undefined {

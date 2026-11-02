@@ -26,21 +26,27 @@ function SetView({ initial }: { initial: SetWithCards }) {
   const [cards, setCards] = useState<Card[]>(initial.cards)
   const [error, setError] = useState<string | null>(null)
   const [order, setOrder] = useState<CardOrder>('original')
+  const [busy, setBusy] = useState(false)
 
   function replaceCard(card: Card) {
     setCards((cs) => cs.map((c) => (c.id === card.id ? card : c)))
   }
 
   async function toggleCodeMode() {
+    setBusy(true)
+    setError(null)
     try {
       setSet({ ...set, ...(await api.sets.update(set.id, { code_mode: !set.code_mode })) })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
     }
   }
 
   async function remove() {
     if (!window.confirm(`Delete the set "${set.title}" and its ${cards.length} cards?`)) return
+    setError(null)
     try {
       await api.sets.remove(set.id)
       navigate('/sets')
@@ -63,7 +69,7 @@ function SetView({ initial }: { initial: SetWithCards }) {
         <h1 className="text-2xl font-semibold">{set.title}</h1>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={set.code_mode === 1} onChange={() => void toggleCodeMode()} />
+            <input type="checkbox" checked={set.code_mode === 1} disabled={busy} onChange={() => void toggleCodeMode()} />
             Code mode
           </label>
           <Link to={`/sets/${set.id}/edit`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">

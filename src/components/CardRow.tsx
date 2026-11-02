@@ -39,6 +39,11 @@ export default function CardRow({ card, onChange, stat }: Props) {
     if (await run({ term, definition })) setEditing(false)
   }
 
+  function cancelEdit() {
+    setEditing(false)
+    setError(null)
+  }
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-4">
@@ -70,7 +75,7 @@ export default function CardRow({ card, onChange, stat }: Props) {
           </button>
           {editing ? (
             <div className="flex gap-1">
-              <button type="button" onClick={() => setEditing(false)} disabled={busy} className="rounded px-2 py-1 text-xs hover:bg-gray-100">
+              <button type="button" onClick={cancelEdit} disabled={busy} className="rounded px-2 py-1 text-xs hover:bg-gray-100">
                 Cancel
               </button>
               <button

@@ -25,6 +25,8 @@ describe('percent', () => {
     expect(percent({ checked_count: 3, sorted_count: 4 })).toBe(75)
     expect(percent({ checked_count: 1, sorted_count: 3 })).toBe(33)
     expect(percent({ checked_count: 2, sorted_count: 3 })).toBe(67)
+    expect(percent({ checked_count: 23, sorted_count: 40 })).toBe(58)
+    expect(percent({ checked_count: 29, sorted_count: 200 })).toBe(15)
     expect(percent({ checked_count: 0, sorted_count: 0 })).toBeNull()
   })
 })

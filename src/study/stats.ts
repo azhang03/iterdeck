@@ -1,9 +1,10 @@
 import type { Card } from '../api.ts'
 
 // Percent of Flashcards sorts that were checked, rounded. Null when never sorted.
+// Multiply before dividing so a true .5 rounds up (23 of 40 is 58, not 57).
 export function percent(card: Pick<Card, 'checked_count' | 'sorted_count'>): number | null {
   if (card.sorted_count === 0) return null
-  return Math.round((card.checked_count / card.sorted_count) * 100)
+  return Math.round((card.checked_count * 100) / card.sorted_count)
 }
 
 // 0 is red, 100 is green: HSL hue from 0 to 120.
