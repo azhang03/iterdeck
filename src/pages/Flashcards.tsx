@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
+import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.tsx'
 import OptionsPanel from '../components/OptionsPanel.tsx'
+import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
@@ -87,6 +89,8 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
   const over = fc.roundOver(s)
+  const codeMode = set.code_mode === 1
+  const [focusSide, setFocusSide] = useState<FocusSide>('card')
 
   // Stats calls go out one after another, so a sort and its undo cannot arrive out of
   // order. A sort that failed is remembered; its undo is not sent.
@@ -126,7 +130,8 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
   }
 
   useEffect(() => {
-    if (paused) return
+    // In code mode, keys act only when the card side was clicked last.
+    if (paused || (codeMode && focusSide !== 'card')) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (e.key === ' ') {
@@ -156,41 +161,55 @@ function Session({ set, deck, options, paused, onOpenOptions }: SessionProps) {
 
   const sum = fc.summary(s)
 
+  const summary = (
+    <div className={codeMode ? 'text-center' : 'rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm'}>
+      <h2 className="mb-2 text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} done`}</h2>
+      <p className="mb-6 text-gray-600">
+        {sum.checked} checked, {sum.missed} missed, {sum.percent}% right.
+      </p>
+      {fc.done(s) ? (
+        <div className="flex justify-center gap-3">
+          <PrimaryButton onClick={restart}>Restart</PrimaryButton>
+          <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+            Back to the set
+          </Link>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <PrimaryButton onClick={() => setS(fc.nextRound)}>Continue with the {sum.missed} missed</PrimaryButton>
+          <span className="text-xs text-gray-500">or press Space</span>
+        </div>
+      )}
+      <div className="mt-4">
+        <button type="button" onClick={undo} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+          Undo last card
+        </button>
+      </div>
+    </div>
+  )
+
+  const controls = <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
+
   return (
-    <StudyShell set={set} mode="Flashcards" round={s.round} actions={actions}>
+    <StudyShell set={set} mode="Flashcards" round={s.round} actions={actions} wide={codeMode}>
       <ProgressBar done={s.index} total={s.queue.length} />
       {error && <p className="mb-4 text-sm text-red-600">Could not save a result: {error}</p>}
 
-      {over ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="mb-2 text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} done`}</h2>
-          <p className="mb-6 text-gray-600">
-            {sum.checked} checked, {sum.missed} missed, {sum.percent}% right.
-          </p>
-          {fc.done(s) ? (
-            <div className="flex justify-center gap-3">
-              <PrimaryButton onClick={restart}>Restart</PrimaryButton>
-              <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
-                Back to the set
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <PrimaryButton onClick={() => setS(fc.nextRound)}>Continue with the {sum.missed} missed</PrimaryButton>
-              <span className="text-xs text-gray-500">or press Space</span>
-            </div>
-          )}
-          <div className="mt-4">
-            <button type="button" onClick={undo} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
-              Undo last card
-            </button>
-          </div>
-        </div>
+      {codeMode ? (
+        <CodeStudyLayout
+          setId={set.id}
+          focusSide={focusSide}
+          onFocusSide={setFocusSide}
+          panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />}
+          footer={over ? undefined : controls}
+        />
+      ) : over ? (
+        summary
       ) : (
         card && (
           <>
             <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />
-            <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
+            {controls}
           </>
         )
       )}
