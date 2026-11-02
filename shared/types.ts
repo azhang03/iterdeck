@@ -25,6 +25,9 @@ export type Card = {
   definition: string
   term_image_id: number | null
   definition_image_id: number | null
+  // Set by the server from the images table; null when there is no image.
+  term_image_url: string | null
+  definition_image_url: string | null
   starred: 0 | 1
   checked_count: number
   sorted_count: number

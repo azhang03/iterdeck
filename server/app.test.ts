@@ -276,5 +276,7 @@ describe('images', () => {
     const s = await makeSet('s')
     const withImage = await putCards(s.id, [{ term: 'a', definition: '', term_image_id: img.id }])
     expect(withImage.cards[0].term_image_id).toBe(img.id)
+    expect(withImage.cards[0].term_image_url).toBe(`/images/${img.file}`)
+    expect(withImage.cards[0].definition_image_url).toBeNull()
   })
 })

@@ -101,8 +101,21 @@ export function getSet(db: Db, setId: number): CardSet {
   return row
 }
 
+// Card rows with the image URLs joined in, so the client can show thumbnails.
+const CARD_SELECT = `
+  SELECT c.*,
+    CASE WHEN ti.file IS NULL THEN NULL ELSE '/images/' || ti.file END AS term_image_url,
+    CASE WHEN di.file IS NULL THEN NULL ELSE '/images/' || di.file END AS definition_image_url
+  FROM cards c
+  LEFT JOIN images ti ON ti.id = c.term_image_id
+  LEFT JOIN images di ON di.id = c.definition_image_id`
+
 export function getCards(db: Db, setId: number): Card[] {
-  return db.prepare('SELECT * FROM cards WHERE set_id = ? ORDER BY position, id').all(setId) as Card[]
+  return db.prepare(`${CARD_SELECT} WHERE c.set_id = ? ORDER BY c.position, c.id`).all(setId) as Card[]
+}
+
+export function getCard(db: Db, cardId: number): Card | undefined {
+  return db.prepare(`${CARD_SELECT} WHERE c.id = ?`).get(cardId) as Card | undefined
 }
 
 function cardInput(v: unknown, index: number): CardInput {
