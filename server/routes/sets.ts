@@ -39,7 +39,11 @@ export function setsRouter(db: Db, imagesDir: string) {
   r.get('/:id', (req, res) => {
     const setId = id(req.params.id, 'id')
     const set = getSet(db, setId)
-    res.json({ ...set, cards: getCards(db, setId) })
+    const folder =
+      set.folder_id === null
+        ? null
+        : ((db.prepare('SELECT id, name FROM folders WHERE id = ?').get(set.folder_id) as { id: number; name: string } | undefined) ?? null)
+    res.json({ ...set, folder, cards: getCards(db, setId) })
   })
 
   r.post('/:id/open', (req, res) => {

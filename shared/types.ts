@@ -53,4 +53,4 @@ export type CardInput = {
 }
 
 export type FolderWithSets = Folder & { sets: CardSet[] }
-export type SetWithCards = CardSet & { cards: Card[] }
+export type SetWithCards = CardSet & { folder: Pick<Folder, 'id' | 'name'> | null; cards: Card[] }
