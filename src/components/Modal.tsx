@@ -1,17 +1,15 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
-type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode }
+type Props = { onClose: () => void; title: string; children: ReactNode }
 
-// A modal on the native dialog element. Escape and a click on the backdrop close it.
-export default function Modal({ open, onClose, title, children }: Props) {
+// A modal on the native dialog element. It opens when mounted; the parent
+// unmounts it to close. Escape and a click on the backdrop call onClose.
+export default function Modal({ onClose, title, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (open && !el.open) el.showModal()
-    if (!open && el.open) el.close()
-  }, [open])
+    ref.current?.showModal()
+  }, [])
 
   return (
     <dialog

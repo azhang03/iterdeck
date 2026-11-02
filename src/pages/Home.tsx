@@ -18,7 +18,7 @@ export default function Home() {
         <h1 className="text-2xl font-semibold">Home</h1>
         <PrimaryButton onClick={() => setCreating(true)}>Create set</PrimaryButton>
       </div>
-      <CreateSetDialog open={creating} onClose={() => setCreating(false)} />
+      {creating && <CreateSetDialog onClose={() => setCreating(false)} />}
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-medium">Recent folders</h2>

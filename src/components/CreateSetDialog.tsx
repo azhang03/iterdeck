@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, type ListSort } from '../api.ts'
 import { useAsync, useDebounced } from '../hooks.ts'
@@ -6,10 +6,11 @@ import { PrimaryButton } from './Button.tsx'
 import ListControls from './ListControls.tsx'
 import Modal from './Modal.tsx'
 
-type Props = { open: boolean; onClose: () => void; initialFolderId?: number | null }
+type Props = { onClose: () => void; initialFolderId?: number | null }
 
 // Asks for a title and a folder, creates the set, and goes to the editor.
-export default function CreateSetDialog({ open, onClose, initialFolderId = null }: Props) {
+// The parent mounts it to open and unmounts it to close.
+export default function CreateSetDialog({ onClose, initialFolderId = null }: Props) {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [folderId, setFolderId] = useState<number | null>(initialFolderId)
@@ -18,16 +19,7 @@ export default function CreateSetDialog({ open, onClose, initialFolderId = null 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const query = useDebounced(q.trim(), 200)
-  const folders = useAsync(() => (open ? api.folders.list({ sort, q: query }) : Promise.resolve([])), [open, sort, query])
-
-  useEffect(() => {
-    if (!open) return
-    setTitle('')
-    setFolderId(initialFolderId)
-    setQ('')
-    setError(null)
-    setBusy(false)
-  }, [open, initialFolderId])
+  const folders = useAsync(() => api.folders.list({ sort, q: query }), [sort, query])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -49,7 +41,7 @@ export default function CreateSetDialog({ open, onClose, initialFolderId = null 
     `block cursor-pointer rounded px-3 py-2 text-sm ${checked ? 'bg-blue-50 font-medium text-blue-700' : 'hover:bg-gray-100'}`
 
   return (
-    <Modal open={open} onClose={onClose} title="Create set">
+    <Modal onClose={onClose} title="Create set">
       <form onSubmit={submit}>
         <label className="mb-4 block text-sm">
           <span className="mb-1 block font-medium">Title</span>

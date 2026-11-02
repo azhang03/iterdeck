@@ -19,7 +19,7 @@ export default function Sets() {
         <h1 className="text-2xl font-semibold">Sets</h1>
         <PrimaryButton onClick={() => setCreating(true)}>Create set</PrimaryButton>
       </div>
-      <CreateSetDialog open={creating} onClose={() => setCreating(false)} />
+      {creating && <CreateSetDialog onClose={() => setCreating(false)} />}
       <ListControls q={q} onQ={setQ} sort={sort} onSort={setSort} placeholder="Search sets" />
       <Status error={sets.error} loading={sets.loading} />
       {sets.data &&
