@@ -5,6 +5,7 @@ import { PrimaryButton } from '../components/Button.tsx'
 import CardRow from '../components/CardRow.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
 import { useAsync } from '../hooks.ts'
+import { orderCards, percent, type CardOrder } from '../study/stats.ts'
 
 export default function Set() {
   const { id } = useParams()
@@ -24,6 +25,7 @@ function SetView({ initial }: { initial: SetWithCards }) {
   const [set, setSet] = useState(initial)
   const [cards, setCards] = useState<Card[]>(initial.cards)
   const [error, setError] = useState<string | null>(null)
+  const [order, setOrder] = useState<CardOrder>('original')
 
   function replaceCard(card: Card) {
     setCards((cs) => cs.map((c) => (c.id === card.id ? card : c)))
@@ -81,6 +83,16 @@ function SetView({ initial }: { initial: SetWithCards }) {
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-medium">Cards ({cards.length})</h2>
+        <select
+          value={order}
+          onChange={(e) => setOrder(e.target.value as CardOrder)}
+          aria-label="Card order"
+          className="rounded border border-gray-300 bg-white px-3 py-1 text-sm"
+        >
+          <option value="original">Original</option>
+          <option value="stats-asc">Stats (low to high)</option>
+          <option value="stats-desc">Stats (high to low)</option>
+        </select>
       </div>
       {cards.length === 0 ? (
         <Empty>
@@ -88,8 +100,8 @@ function SetView({ initial }: { initial: SetWithCards }) {
         </Empty>
       ) : (
         <div className="space-y-3">
-          {cards.map((c) => (
-            <CardRow key={c.id} card={c} onChange={replaceCard} />
+          {orderCards(cards, order).map((c) => (
+            <CardRow key={c.id} card={c} onChange={replaceCard} stat={order === 'original' ? undefined : { percent: percent(c) }} />
           ))}
         </div>
       )}
