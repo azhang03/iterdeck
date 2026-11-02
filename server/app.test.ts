@@ -104,9 +104,12 @@ describe('folders', () => {
   it('deleting a folder keeps its sets with folder_id null', async () => {
     const f = (await call<Folder>('POST', '/api/folders', { name: 'f' })).data
     const s = await makeSet('kept', f.id)
+    const before = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data
+    expect(before.folder).toEqual({ id: f.id, name: 'f' })
     expect((await call('DELETE', `/api/folders/${f.id}`)).status).toBe(204)
     const after = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data
     expect(after.folder_id).toBeNull()
+    expect(after.folder).toBeNull()
     expect((await call('GET', `/api/folders/${f.id}`)).status).toBe(404)
   })
 })
