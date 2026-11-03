@@ -2,11 +2,14 @@ import { Router } from 'express'
 import type { Db } from '../db.ts'
 import { now } from '../db.ts'
 import type { Card, CardInput, CardSet, SetWithCards } from '../../shared/types.ts'
-import { BadRequest, NotFound, bool, id, idOrNull, listSort, nonEmptyText, orderBy, query, text } from '../validate.ts'
+import { BadRequest, NotFound, bool, id, idOrNull, language, listSort, nonEmptyText, orderBy, query, text } from '../validate.ts'
 import { getFolder, like } from './folders.ts'
 import { sweepOrphanImages } from '../images.ts'
+import { listFiles } from './files.ts'
+import { unlink } from 'node:fs/promises'
+import { join } from 'node:path'
 
-export function setsRouter(db: Db, imagesDir: string) {
+export function setsRouter(db: Db, dirs: { imagesDir: string; filesDir: string }) {
   const r = Router()
 
   r.get('/', (req, res) => {
@@ -67,6 +70,10 @@ export function setsRouter(db: Db, imagesDir: string) {
       fields.push('code_mode = ?')
       params.push(bool(body.code_mode, 'code_mode'))
     }
+    if (body.language !== undefined) {
+      fields.push('language = ?')
+      params.push(language(body.language))
+    }
     if (fields.length === 0) throw new BadRequest('nothing to update')
     fields.push('updated_at = ?')
     params.push(now(), setId)
@@ -81,14 +88,16 @@ export function setsRouter(db: Db, imagesDir: string) {
     const inputs = req.body.map(cardInput)
     replaceCards(db, setId, inputs)
     res.json(setWithCards(db, setId))
-    void sweepOrphanImages(db, imagesDir)
+    void sweepOrphanImages(db, dirs.imagesDir)
   })
 
-  r.delete('/:id', (req, res) => {
+  r.delete('/:id', async (req, res) => {
     const setId = id(req.params.id, 'id')
     getSet(db, setId)
-    // cards.set_id is ON DELETE CASCADE.
+    const files = db.prepare('SELECT file FROM set_files WHERE set_id = ?').all(setId) as { file: string }[]
+    // cards.set_id and set_files.set_id are ON DELETE CASCADE.
     db.prepare('DELETE FROM sets WHERE id = ?').run(setId)
+    for (const f of files) await unlink(join(dirs.filesDir, f.file)).catch(() => {})
     res.status(204).end()
   })
 
@@ -114,14 +123,14 @@ export function getCards(db: Db, setId: number): Card[] {
   return db.prepare(`${CARD_SELECT} WHERE c.set_id = ? ORDER BY c.position, c.id`).all(setId) as Card[]
 }
 
-// The set, the folder it is in (id and name, or null), and its cards.
+// The set, the folder it is in (id and name, or null), its cards, and its CSV files.
 function setWithCards(db: Db, setId: number): SetWithCards {
   const set = getSet(db, setId)
   const folder =
     set.folder_id === null
       ? null
       : ((db.prepare('SELECT id, name FROM folders WHERE id = ?').get(set.folder_id) as SetWithCards['folder']) ?? null)
-  return { ...set, folder, cards: getCards(db, setId) }
+  return { ...set, folder, cards: getCards(db, setId), files: listFiles(db, setId) }
 }
 
 export function getCard(db: Db, cardId: number): Card | undefined {
@@ -137,6 +146,8 @@ function cardInput(v: unknown, index: number): CardInput {
     definition: text(c.definition ?? '', `card ${index} definition`),
     term_image_id: idOrNull(c.term_image_id, `card ${index} term_image_id`),
     definition_image_id: idOrNull(c.definition_image_id, `card ${index} definition_image_id`),
+    tests: text(c.tests ?? '', `card ${index} tests`, 20000),
+    ordered: c.ordered === undefined ? false : bool(c.ordered, `card ${index} ordered`) === 1,
   }
 }
 
@@ -145,10 +156,10 @@ function cardInput(v: unknown, index: number): CardInput {
 // the set that are not in the list are deleted. Position is the array index.
 function replaceCards(db: Db, setId: number, inputs: CardInput[]) {
   const update = db.prepare(
-    'UPDATE cards SET position = ?, term = ?, definition = ?, term_image_id = ?, definition_image_id = ? WHERE id = ? AND set_id = ?',
+    'UPDATE cards SET position = ?, term = ?, definition = ?, term_image_id = ?, definition_image_id = ?, tests = ?, ordered = ? WHERE id = ? AND set_id = ?',
   )
   const insert = db.prepare(
-    'INSERT INTO cards (set_id, position, term, definition, term_image_id, definition_image_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO cards (set_id, position, term, definition, term_image_id, definition_image_id, tests, ordered, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
   )
   const imageExists = db.prepare('SELECT 1 FROM images WHERE id = ?')
   db.transaction(() => {
@@ -160,11 +171,11 @@ function replaceCards(db: Db, setId: number, inputs: CardInput[]) {
       }
       if (c.id !== undefined) {
         if (keep.includes(c.id)) throw new BadRequest(`card ${position}: card ${c.id} is listed twice`)
-        const changed = update.run(position, c.term, c.definition, c.term_image_id, c.definition_image_id, c.id, setId).changes
+        const changed = update.run(position, c.term, c.definition, c.term_image_id, c.definition_image_id, c.tests, c.ordered ? 1 : 0, c.id, setId).changes
         if (changed === 0) throw new BadRequest(`card ${position}: card ${c.id} is not in this set`)
         keep.push(c.id)
       } else {
-        const info = insert.run(setId, position, c.term, c.definition, c.term_image_id, c.definition_image_id, t)
+        const info = insert.run(setId, position, c.term, c.definition, c.term_image_id, c.definition_image_id, c.tests, c.ordered ? 1 : 0, t)
         keep.push(Number(info.lastInsertRowid))
       }
     })

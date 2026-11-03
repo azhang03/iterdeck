@@ -6,6 +6,7 @@ import CardRow from '../components/CardRow.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
 import { useAsync } from '../hooks.ts'
 import { orderCards, percent, type CardOrder } from '../study/stats.ts'
+import { LANGUAGES } from '../study/languages.ts'
 
 export default function Set() {
   const { id } = useParams()
@@ -81,6 +82,14 @@ function SetView({ initial }: { initial: SetWithCards }) {
         </div>
       </div>
       {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      {set.code_mode === 1 && (
+        <p className="-mt-4 mb-6 text-sm text-gray-500">
+          {LANGUAGES.find((l) => l.value === set.language)?.label ?? 'No language yet'}
+          {set.language === 'postgresql' && set.files.length > 0 && (
+            <span>. Tables: {set.files.map((f) => f.table_name).join(', ')}</span>
+          )}
+        </p>
+      )}
 
       <div className="mb-8 grid grid-cols-2 gap-4">
         <StudyLink to={`/sets/${set.id}/flashcards`} title="Flashcards" text="Flip and sort every card." />

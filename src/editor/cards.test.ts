@@ -10,15 +10,15 @@ function card(over: Partial<EditorCard>): EditorCard {
 describe('toInputs', () => {
   it('drops cards with no text and no images, keeps ids, and strips the rest', () => {
     const cards = [
-      card({ id: 7, term: 'a', definition: '' }),
+      card({ id: 7, term: 'a', definition: '', tests: 'assert f()', ordered: true }),
       card({ term: '  ', definition: '' }),
       card({ term: '', definition: '', term_image: img(3) }),
       card({ term: '', definition: 'd' }),
     ]
     expect(toInputs(cards)).toEqual([
-      { id: 7, term: 'a', definition: '', term_image_id: null, definition_image_id: null },
-      { id: undefined, term: '', definition: '', term_image_id: 3, definition_image_id: null },
-      { id: undefined, term: '', definition: 'd', term_image_id: null, definition_image_id: null },
+      { id: 7, term: 'a', definition: '', term_image_id: null, definition_image_id: null, tests: 'assert f()', ordered: true },
+      { id: undefined, term: '', definition: '', term_image_id: 3, definition_image_id: null, tests: '', ordered: false },
+      { id: undefined, term: '', definition: 'd', term_image_id: null, definition_image_id: null, tests: '', ordered: false },
     ])
   })
 })

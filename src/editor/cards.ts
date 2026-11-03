@@ -9,12 +9,14 @@ export type EditorCard = {
   definition: string
   term_image: { id: number; url: string } | null
   definition_image: { id: number; url: string } | null
+  tests: string
+  ordered: boolean
 }
 
 let nextKey = 1
 
 export function blankCard(): EditorCard {
-  return { key: `new-${nextKey++}`, term: '', definition: '', term_image: null, definition_image: null }
+  return { key: `new-${nextKey++}`, term: '', definition: '', term_image: null, definition_image: null, tests: '', ordered: false }
 }
 
 export function fromCards(cards: Card[]): EditorCard[] {
@@ -28,6 +30,8 @@ export function fromCards(cards: Card[]): EditorCard[] {
       c.definition_image_id !== null && c.definition_image_url !== null
         ? { id: c.definition_image_id, url: c.definition_image_url }
         : null,
+    tests: c.tests,
+    ordered: c.ordered === 1,
   }))
 }
 
@@ -45,6 +49,8 @@ export function toInputs(cards: EditorCard[]): CardInput[] {
       definition: c.definition,
       term_image_id: c.term_image?.id ?? null,
       definition_image_id: c.definition_image?.id ?? null,
+      tests: c.tests,
+      ordered: c.ordered,
     }))
 }
 

@@ -16,6 +16,9 @@ function card(id: number): Card {
     starred: 0,
     checked_count: 0,
     sorted_count: 0,
+    tests: '',
+    ordered: 0,
+    code: '',
     created_at: '',
   }
 }

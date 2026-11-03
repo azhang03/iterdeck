@@ -1,12 +1,12 @@
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Server } from 'node:http'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
-import { sweepOrphanImages } from './images.ts'
+import { sweepOrphanFiles, sweepOrphanImages } from './images.ts'
 import { openDb, type Db } from './db.ts'
-import type { Card, CardSet, Folder, Image, SetWithCards } from '../shared/types.ts'
+import type { Card, CardSet, Folder, Image, SetFile, SetWithCards } from '../shared/types.ts'
 
 let dir: string
 let db: Db
@@ -16,7 +16,7 @@ let base: string
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'iterdeck-test-'))
   db = openDb(join(dir, 'test.db'))
-  const app = createApp(db, join(dir, 'images'))
+  const app = createApp(db, { imagesDir: join(dir, 'images'), filesDir: join(dir, 'files') })
   // Node 20 has no Promise.withResolvers.
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve())
@@ -33,7 +33,7 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  db.exec('DELETE FROM cards; DELETE FROM sets; DELETE FROM folders; DELETE FROM images;')
+  db.exec('DELETE FROM set_files; DELETE FROM cards; DELETE FROM sets; DELETE FROM folders; DELETE FROM images;')
 })
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -146,6 +146,16 @@ describe('sets', () => {
     expect((await call('DELETE', `/api/sets/${s.id}`)).status).toBe(204)
     expect((await call('PATCH', `/api/cards/${cardId}`, { starred: true })).status).toBe(404)
   })
+
+  it('patches the language and rejects an unknown one', async () => {
+    const s = await makeSet('s')
+    expect(s.language).toBeNull()
+    const py = await call<CardSet>('PATCH', `/api/sets/${s.id}`, { language: 'python' })
+    expect(py.data.language).toBe('python')
+    const none = await call<CardSet>('PATCH', `/api/sets/${s.id}`, { language: null })
+    expect(none.data.language).toBeNull()
+    expect((await call('PATCH', `/api/sets/${s.id}`, { language: 'ruby' })).status).toBe(400)
+  })
 })
 
 describe('card replace', () => {
@@ -217,6 +227,24 @@ describe('card replace', () => {
     await putCards(s.id, [{ term: 'a', definition: '' }])
     const cleared = await putCards(s.id, [])
     expect(cleared.cards).toEqual([])
+  })
+
+  it('round-trips tests and ordered, and keeps code on replace', async () => {
+    const s = await makeSet('s')
+    const first = await putCards(s.id, [{ term: 'a', definition: '', tests: 'assert f() == 1', ordered: true }])
+    expect(first.cards[0]).toMatchObject({ tests: 'assert f() == 1', ordered: 1, code: '' })
+    const card = first.cards[0]
+    const patched = await call<Card>('PATCH', `/api/cards/${card.id}`, { code: 'x = 1' })
+    expect(patched.data.code).toBe('x = 1')
+    const second = await putCards(s.id, [{ id: card.id, term: 'a', definition: '', tests: '', ordered: false }])
+    expect(second.cards[0]).toMatchObject({ tests: '', ordered: 0, code: 'x = 1' })
+    const fetched = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data
+    expect(fetched.cards[0].code).toBe('x = 1')
+  })
+
+  it('rejects a non-boolean ordered', async () => {
+    const s = await makeSet('s')
+    expect((await call('PUT', `/api/sets/${s.id}/cards`, [{ term: 'a', definition: '', ordered: 'yes' }])).status).toBe(400)
   })
 })
 
@@ -307,5 +335,84 @@ describe('orphan image sweep', () => {
     expect(left.map((r) => r.id)).toEqual([used.id, recentOrphan.id])
     expect(existsSync(join(dir, 'images', oldOrphan.file))).toBe(false)
     expect(existsSync(join(dir, 'images', used.file))).toBe(true)
+  })
+})
+
+describe('set files', () => {
+  const csv = 'id,name,price,active,day\n1,a,1.5,true,2024-01-02\n2,"b, c",,f,\n'
+  const upload = <T = SetFile>(setId: number, name: string, body = csv) => {
+    const form = new FormData()
+    form.append('file', new Blob([body], { type: 'text/csv' }), name)
+    return call<T>('POST', `/api/sets/${setId}/files`, form)
+  }
+
+  it('infers column types, counts rows, and serves the file', async () => {
+    const s = await makeSet('s')
+    const r = await upload(s.id, 'Fixture.csv')
+    expect(r.status).toBe(201)
+    expect(r.data.table_name).toBe('fixture')
+    expect(r.data.columns).toEqual([
+      { name: 'id', type: 'bigint' },
+      { name: 'name', type: 'text' },
+      { name: 'price', type: 'numeric' },
+      { name: 'active', type: 'boolean' },
+      { name: 'day', type: 'date' },
+    ])
+    expect(r.data.row_count).toBe(2)
+    expect(r.data.size).toBe(csv.length)
+    expect(r.data.file).toBe(`${r.data.id}.csv`)
+    const served = await fetch(`${base}/files/${r.data.file}`)
+    expect(served.status).toBe(200)
+    expect(await served.text()).toBe(csv)
+    const set = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data
+    expect(set.files.map((f) => f.table_name)).toEqual(['fixture'])
+  })
+
+  it('rejects a second table with the same name, a non-csv name, and a headerless file', async () => {
+    const s = await makeSet('s')
+    await upload(s.id, 'fixture.csv')
+    const dup = await upload<{ error: string }>(s.id, 'fixture.CSV')
+    expect(dup.status).toBe(400)
+    expect(dup.data.error).toBe('a table named fixture already exists in this set')
+    expect((await upload(s.id, 'notes.txt')).status).toBe(400)
+    expect((await upload(s.id, 'empty.csv', '')).status).toBe(400)
+    const left = db.prepare('SELECT COUNT(*) AS n FROM set_files').get() as { n: number }
+    expect(left.n).toBe(1)
+  })
+
+  it('lists by table name, deletes a file, and 404s for another set', async () => {
+    const s = await makeSet('s')
+    const other = await makeSet('other')
+    const b = (await upload(s.id, 'b.csv')).data
+    await upload(s.id, 'a.csv')
+    const list = (await call<SetFile[]>('GET', `/api/sets/${s.id}/files`)).data
+    expect(list.map((f) => f.table_name)).toEqual(['a', 'b'])
+    expect((await call('DELETE', `/api/sets/${other.id}/files/${b.id}`)).status).toBe(404)
+    expect((await call('DELETE', `/api/sets/${s.id}/files/${b.id}`)).status).toBe(204)
+    expect(existsSync(join(dir, 'files', b.file))).toBe(false)
+    expect((await call<SetFile[]>('GET', `/api/sets/${s.id}/files`)).data.map((f) => f.table_name)).toEqual(['a'])
+  })
+
+  it('deleting the set removes its files from disk', async () => {
+    const s = await makeSet('s')
+    const f = (await upload(s.id, 'data.csv')).data
+    expect(existsSync(join(dir, 'files', f.file))).toBe(true)
+    expect((await call('DELETE', `/api/sets/${s.id}`)).status).toBe(204)
+    expect(existsSync(join(dir, 'files', f.file))).toBe(false)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM set_files').get()).toEqual({ n: 0 })
+  })
+
+  it('the orphan sweep removes old files that no row names', async () => {
+    const s = await makeSet('s')
+    const kept = (await upload(s.id, 'kept.csv')).data
+    const old = join(dir, 'files', 'stale-temp')
+    writeFileSync(old, 'x')
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    utimesSync(old, twoDaysAgo, twoDaysAgo)
+    writeFileSync(join(dir, 'files', 'fresh-temp'), 'x')
+    expect(await sweepOrphanFiles(db, join(dir, 'files'))).toBe(1)
+    expect(existsSync(old)).toBe(false)
+    expect(existsSync(join(dir, 'files', 'fresh-temp'))).toBe(true)
+    expect(existsSync(join(dir, 'files', kept.file))).toBe(true)
   })
 })
