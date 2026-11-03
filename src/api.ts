@@ -9,9 +9,10 @@ import type {
   ListSort,
   SetFile,
   SetWithCards,
+  StudyMode,
 } from '../shared/types.ts'
 
-export type { Card, CardInput, CardSet, Folder, FolderWithSets, Image, Language, ListSort, SetFile, SetWithCards }
+export type { Card, CardInput, CardSet, Folder, FolderWithSets, Image, Language, ListSort, SetFile, SetWithCards, StudyMode }
 
 export class ApiError extends Error {
   status: number
@@ -67,6 +68,9 @@ export const api = {
     update: (id: number, patch: { title?: string; folder_id?: number | null; code_mode?: boolean; language?: Language | null }) =>
       request<CardSet>('PATCH', `/api/sets/${id}`, patch),
     replaceCards: (id: number, cards: CardInput[]) => request<SetWithCards>('PUT', `/api/sets/${id}/cards`, cards),
+    saveProgress: (id: number, mode: StudyMode, state: object) => request<void>('PUT', `/api/sets/${id}/progress/${mode}`, state),
+    clearProgress: (id: number, mode: StudyMode) => request<void>('DELETE', `/api/sets/${id}/progress/${mode}`),
+    clearCode: (id: number) => request<void>('DELETE', `/api/sets/${id}/code`),
     remove: (id: number) => request<void>('DELETE', `/api/sets/${id}`),
   },
   cards: {

@@ -10,21 +10,18 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useAsync, useCodeDocs, useCodeSaver } from '../hooks.ts'
+import { useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as learn from '../study/learn.ts'
-import { DEFAULT_OPTIONS, deckFor, sideText, type StudyOptions } from '../study/options.ts'
+import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
 
 export default function Learn() {
   const { id } = useParams()
   const setId = Number(id)
-  const loaded = useAsync(() => api.sets.get(setId), [setId])
-  const [options, setOptions] = useState<StudyOptions>(DEFAULT_OPTIONS)
+  const page = useStudyPage(setId, 'learn', learn.resume)
+  const { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
-  const [sessionKey, setSessionKey] = useState(0)
   // Code mode state lives here so an options change keeps the code and the active side.
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
-  const docs = useCodeDocs(loaded.data)
-  const saveCode = useCodeSaver()
 
   useEffect(() => {
     void api.sets.open(setId).catch(() => {})
@@ -65,10 +62,13 @@ export default function Learn() {
           key={`${sessionKey}-${options.front}-${options.starredOnly}-${options.groupSize}`}
           set={set}
           deck={deck}
+          initial={initial}
           options={options}
           paused={optionsOpen}
+          progress={progress}
           onOpenOptions={() => setOptionsOpen(true)}
-          code={{ focusSide, setFocusSide, docs, saveCode }}
+          onRestart={restart}
+          code={{ focusSide, setFocusSide, docs, saveCode: codeSaver.save }}
         />
       )}
       {optionsOpen && (
@@ -76,7 +76,7 @@ export default function Learn() {
           options={options}
           onChange={setOptions}
           onRestart={() => {
-            setSessionKey((k) => k + 1)
+            restart()
             setOptionsOpen(false)
           }}
           onClose={() => setOptionsOpen(false)}
@@ -97,16 +97,27 @@ type CodeState = {
 type SessionProps = {
   set: SetWithCards
   deck: Card[]
+  initial: learn.LearnState | null
   options: StudyOptions
   paused: boolean
+  progress: ProgressSaver
   onOpenOptions: () => void
+  onRestart: () => void
   code: CodeState
 }
 
-function Session({ set, deck, options, paused, onOpenOptions, code }: SessionProps) {
-  const [s, setS] = useState(() => learn.start(deck, options.groupSize))
+function Session({ set, deck, initial, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+  const [s, setS] = useState(() => initial ?? learn.start(deck, options.groupSize))
   const card = learn.current(s)
   const codeMode = set.code_mode === 1
+
+  // The start of the current group is saved; progress inside the group is not.
+  // Dropped when every group is done.
+  useEffect(() => {
+    if (s.phase === 'done') progress.clear()
+    else progress.save(learn.snapshot(s, options))
+  }, [s, options, progress])
+
 
   useEffect(() => {
     // In code mode, keys act only when the card side was used last.
@@ -153,7 +164,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
       <h2 className="mb-2 text-xl font-semibold">All groups done</h2>
       <p className="mb-6 text-gray-600">Every card was checked.</p>
       <div className="flex justify-center gap-3">
-        <PrimaryButton onClick={() => setS(learn.restart)}>Restart</PrimaryButton>
+        <PrimaryButton onClick={onRestart}>Restart</PrimaryButton>
         <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
           Back to the set
         </Link>

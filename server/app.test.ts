@@ -33,7 +33,7 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  db.exec('DELETE FROM set_files; DELETE FROM cards; DELETE FROM sets; DELETE FROM folders; DELETE FROM images;')
+  db.exec('DELETE FROM study_progress; DELETE FROM set_files; DELETE FROM cards; DELETE FROM sets; DELETE FROM folders; DELETE FROM images;')
 })
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -414,5 +414,46 @@ describe('set files', () => {
     expect(existsSync(old)).toBe(false)
     expect(existsSync(join(dir, 'files', 'fresh-temp'))).toBe(true)
     expect(existsSync(join(dir, 'files', kept.file))).toBe(true)
+  })
+})
+
+describe('study progress', () => {
+  it('stores one snapshot per mode, returns it with the set, and deletes it', async () => {
+    const s = await makeSet('s')
+    expect((await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data.progress).toEqual({ flashcards: null, learn: null })
+    expect((await call('PUT', `/api/sets/${s.id}/progress/flashcards`, { queue: [1, 2], index: 1 })).status).toBe(204)
+    expect((await call('PUT', `/api/sets/${s.id}/progress/flashcards`, { queue: [1, 2], index: 2 })).status).toBe(204)
+    expect((await call('PUT', `/api/sets/${s.id}/progress/learn`, { group: [3] })).status).toBe(204)
+    const got = (await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data.progress
+    expect(got).toEqual({ flashcards: { queue: [1, 2], index: 2 }, learn: { group: [3] } })
+    expect((await call('DELETE', `/api/sets/${s.id}/progress/flashcards`)).status).toBe(204)
+    expect((await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data.progress).toEqual({ flashcards: null, learn: { group: [3] } })
+  })
+
+  it('rejects an unknown mode, a non-object body, and a missing set', async () => {
+    const s = await makeSet('s')
+    expect((await call('PUT', `/api/sets/${s.id}/progress/quiz`, {})).status).toBe(400)
+    expect((await call('PUT', `/api/sets/${s.id}/progress/learn`, [1])).status).toBe(400)
+    expect((await call('PUT', `/api/sets/999/progress/learn`, {})).status).toBe(404)
+  })
+
+  it('goes with the set', async () => {
+    const s = await makeSet('s')
+    await call('PUT', `/api/sets/${s.id}/progress/learn`, { group: [1] })
+    await call('DELETE', `/api/sets/${s.id}`)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM study_progress').get()).toEqual({ n: 0 })
+  })
+})
+
+describe('clear code', () => {
+  it('empties the code of every card in the set only', async () => {
+    const s = await makeSet('s')
+    const other = await makeSet('other')
+    const [a, b] = (await putCards(s.id, [{ term: 'a', definition: '' }, { term: 'b', definition: '' }])).cards
+    const [c] = (await putCards(other.id, [{ term: 'c', definition: '' }])).cards
+    for (const card of [a, b, c]) await call('PATCH', `/api/cards/${card.id}`, { code: 'x = 1' })
+    expect((await call('DELETE', `/api/sets/${s.id}/code`)).status).toBe(204)
+    expect((await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data.cards.map((x) => x.code)).toEqual(['', ''])
+    expect((await call<SetWithCards>('GET', `/api/sets/${other.id}`)).data.cards[0].code).toBe('x = 1')
   })
 })

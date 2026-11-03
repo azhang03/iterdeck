@@ -52,5 +52,13 @@ CREATE TABLE IF NOT EXISTS set_files (
   UNIQUE (set_id, table_name)
 );
 
+CREATE TABLE IF NOT EXISTS study_progress (
+  set_id INTEGER NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL,
+  state TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (set_id, mode)
+);
+
 CREATE INDEX IF NOT EXISTS cards_set_position ON cards(set_id, position);
 CREATE INDEX IF NOT EXISTS sets_folder ON sets(folder_id);
