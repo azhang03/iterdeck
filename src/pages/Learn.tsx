@@ -140,7 +140,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
   )
 
   const groups = learn.segments(s)
-  const round = s.phase === 'done' ? undefined : s.roundInGroup
+  const round = s.phase === 'done' ? undefined : s.passes.length
 
   const finished = (
     <div className={codeMode ? 'text-center' : 'rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm'}>
@@ -166,7 +166,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
     />
   )
 
-  const solo = s.solo && <p className="mb-3 text-center text-sm text-gray-500">One more try for this card.</p>
+  const solo = learn.isSolo(s) && <p className="mb-3 text-center text-sm text-gray-500">One more try for this card.</p>
 
   return (
     <StudyShell
@@ -176,7 +176,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
       actions={actions}
       wide={codeMode}
     >
-      <ProgressBar done={s.cleared.length} total={s.group.length} segments={groups} />
+      <ProgressBar done={learn.cleared(s).length} total={s.group.length} segments={groups} />
 
       {codeMode ? (
         <CodeStudyLayout
@@ -184,7 +184,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
           focusSide={code.focusSide}
           onFocusSide={code.setFocusSide}
           doc={code.doc}
-          panelKey={`${s.phase}-${s.groupIndex}-${s.roundInGroup}-${card?.id}-${s.flipped}`}
+          panelKey={`${s.phase}-${s.groupIndex}-${s.index}-${card?.id}-${s.flipped}`}
           panel={
             s.phase === 'done' ? (
               finished
@@ -220,37 +220,30 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
 
 type DebriefProps = { s: learn.LearnState; options: StudyOptions; plain?: boolean; onContinue: () => void; onUndo: () => void }
 
+// Shown when a group is done or a card is carried: every card of the group with its misses.
 function Debrief({ s, options, plain = false, onContinue, onUndo }: DebriefProps) {
-  const { checked, missed } = learn.roundSummary(s)
-  const next =
-    missed.length === 0
-      ? s.remaining.length === 0 && !s.carry
-        ? 'Group done. That was the last group.'
-        : 'Group done. Continue to the next group.'
-      : missed.length === 1 && !s.solo
-        ? 'One card left. Continue for one more try.'
-        : missed.length === 1
-          ? s.remaining.length === 0
-            ? 'Still missed. Try it once more.'
-            : 'Still missed. It moves to the end of the next group.'
-          : `Continue with the ${missed.length} missed cards.`
+  const rows = learn.groupSummary(s)
+  const firstTry = rows.filter((r) => r.misses === 0).length
+  const next = s.carry
+    ? `"${sideText(s.carry, options.front).text || '(empty)'}" missed its second chance. It moves to the end of the next group.`
+    : s.remaining.length === 0
+      ? 'That was the last group.'
+      : 'Continue to the next group.'
 
   return (
     <div className={plain ? '' : 'rounded-xl border border-gray-200 bg-white p-8 shadow-sm'}>
-      <h2 className="mb-1 text-center text-xl font-semibold">Round {s.roundInGroup} of group {s.groupIndex + 1}</h2>
+      <h2 className="mb-1 text-center text-xl font-semibold">Group {s.groupIndex + 1} done</h2>
       <p className="mb-6 text-center text-gray-600">
-        {checked.length} checked, {missed.length} missed. {next}
+        {firstTry} of {rows.length} on the first try, {s.passes.length} {s.passes.length === 1 ? 'pass' : 'passes'}. {next}
       </p>
       <ul className="mb-6 space-y-1">
-        {s.results.map((r) => {
-          const c = s.queue.find((x) => x.id === r.cardId)!
-          return (
-            <li key={r.cardId} className="flex items-center gap-3 text-sm">
-              <span className={r.checked ? 'text-green-700' : 'text-red-600'}>{r.checked ? '\u2713' : '\u2715'}</span>
-              <span className="truncate">{sideText(c, options.front).text || '(empty)'}</span>
-            </li>
-          )
-        })}
+        {rows.map(({ card, misses }) => (
+          <li key={card.id} className="flex items-center gap-3 text-sm">
+            <span className={misses === 0 ? 'text-green-700' : 'text-red-600'}>{misses === 0 ? '\u2713' : '\u2715'}</span>
+            <span className="truncate">{sideText(card, options.front).text || '(empty)'}</span>
+            {misses > 0 && <span className="text-xs text-gray-500">missed {misses === 1 ? 'once' : `${misses} times`}</span>}
+          </li>
+        ))}
       </ul>
       <div className="flex flex-col items-center gap-2">
         <PrimaryButton onClick={onContinue}>Continue</PrimaryButton>

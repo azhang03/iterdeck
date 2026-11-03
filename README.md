@@ -8,7 +8,7 @@ Flashcards in the style of Quizlet, with a code mode that shows a card as a codi
 - An editor for a set: cards with a term, a definition, and an image on each side; drag to reorder; swap all sides; Tab on the last card adds one.
 - A set page with the cards, a star on each, inline edit, and an order by the Flashcards stats.
 - Flashcards: flip, sort with X and check (keys 1 and 2), undo, shuffle, rounds over the missed cards until none are missed. Each sort updates the card's stats.
-- Learn: the cards in groups of n, with a debrief after each round and the one-card rule (a solo second chance, then carry to the next group).
+- Learn: the cards in groups of n. Passes over the missed cards follow at once; a debrief shows when a group is done or a card is carried (the one-card rule: a solo second chance, then carry to the next group).
 - Code mode: with it on, Flashcards and Learn show the card as a problem description next to a CodeMirror editor (Python, PostgreSQL). The side used last gets the keys.
 
 ## Run
