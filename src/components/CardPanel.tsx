@@ -1,12 +1,15 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useEffect, useRef, type KeyboardEvent } from 'react'
+import type { Language } from '../api.ts'
 import type { EditorCard } from '../editor/cards.ts'
 import ImageSquare from './ImageSquare.tsx'
 
 type Props = {
   card: EditorCard
   index: number
+  // The set's language when code mode is on; null hides the code fields.
+  language: Language | null
   focusTerm: boolean
   onChange: (patch: Partial<EditorCard>) => void
   onFocused: () => void
@@ -17,7 +20,7 @@ type Props = {
 
 const area = 'w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
 
-export default function CardPanel({ card, index, focusTerm, isLast, onChange, onFocused, onDelete, onTabOut }: Props) {
+export default function CardPanel({ card, index, language, focusTerm, isLast, onChange, onFocused, onDelete, onTabOut }: Props) {
   const termRef = useRef<HTMLTextAreaElement>(null)
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: card.key })
 
@@ -93,6 +96,31 @@ export default function CardPanel({ card, index, focusTerm, isLast, onChange, on
           onChange={(definition_image) => onChange({ definition_image })}
         />
       </div>
+      {language === 'python' && (
+        <label className="mt-3 block">
+          <textarea
+            value={card.tests}
+            onChange={(e) => onChange({ tests: e.target.value })}
+            rows={4}
+            spellCheck={false}
+            placeholder="One case per paragraph. Each case runs after the solution, for example: assert two_sum([2, 7], 9) == [0, 1]"
+            aria-label={`Tests ${index + 1}`}
+            className={`${area} font-mono`}
+          />
+          <span className="mt-1 block text-xs uppercase tracking-wide text-gray-500">Tests</span>
+        </label>
+      )}
+      {language === 'postgresql' && (
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={card.ordered}
+            onChange={(e) => onChange({ ordered: e.target.checked })}
+            aria-label={`Rows in order ${index + 1}`}
+          />
+          Rows must be in order
+        </label>
+      )}
     </div>
   )
 }

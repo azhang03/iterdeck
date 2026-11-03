@@ -2,9 +2,10 @@ import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
-import { api, type SetWithCards } from '../api.ts'
+import { api, type Language, type SetFile, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import CardPanel from '../components/CardPanel.tsx'
+import CodeSettings from '../components/CodeSettings.tsx'
 import { Status } from '../components/Cards.tsx'
 import { blankCard, fromCards, isEmpty, sameContent, swapSides, toInputs, type EditorCard } from '../editor/cards.ts'
 import { useAsync } from '../hooks.ts'
@@ -29,6 +30,9 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Code mode settings. They are saved as they change, not with Save.
+  const [language, setLanguage] = useState<Language | null>(initial.language)
+  const [files, setFiles] = useState<SetFile[]>(initial.files)
 
   const dirty = title !== saved.title || !sameContent(saved.cards, cards)
 
@@ -144,6 +148,9 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
         </PrimaryButton>
       </div>
       {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      {initial.code_mode === 1 && (
+        <CodeSettings setId={initial.id} language={language} files={files} onLanguage={setLanguage} onFiles={setFiles} />
+      )}
       <div className="mb-4 flex justify-end">
         <button type="button" onClick={() => setCards(swapSides)} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
           Swap terms and definitions
@@ -158,6 +165,7 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
             key={card.key}
             card={card}
             index={i}
+            language={initial.code_mode === 1 ? language : null}
             focusTerm={focusKey === card.key}
             onChange={(patch) => update(card.key, patch)}
             onFocused={clearFocus}
