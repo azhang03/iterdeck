@@ -22,12 +22,13 @@ type Props = {
   docs: Map<number, string>
   onChange: (cardId: number, text: string) => void
   onRun: () => void
+  onTest: () => void
   clearToken: number
   // The last run's error; its line is marked. null clears the mark.
   diagnostics: RunError | null
 }
 
-export default function CodeEditor({ language, cardId, docs, onChange, onRun, clearToken, diagnostics }: Props) {
+export default function CodeEditor({ language, cardId, docs, onChange, onRun, onTest, clearToken, diagnostics }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const [langCompartment] = useState(() => new Compartment())
@@ -36,9 +37,9 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, cl
   const activeCard = useRef<number | null>(cardId)
   const switching = useRef(false)
   // The handlers change on every render; the view is built once.
-  const handlers = useRef({ onChange, onRun })
+  const handlers = useRef({ onChange, onRun, onTest })
   useEffect(() => {
-    handlers.current = { onChange, onRun }
+    handlers.current = { onChange, onRun, onTest }
   })
 
   // One state per card: a fresh state keeps card A's undo history out of card B.
@@ -48,7 +49,12 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, cl
         doc,
         extensions: [
           basicSetup,
-          Prec.highest(keymap.of([{ key: 'Mod-Enter', run: () => (handlers.current.onRun(), true) }])),
+          Prec.highest(
+            keymap.of([
+              { key: 'Mod-Shift-Enter', run: () => (handlers.current.onTest(), true) },
+              { key: 'Mod-Enter', run: () => (handlers.current.onRun(), true) },
+            ]),
+          ),
           keymap.of([indentWithTab]),
           indentUnit.of('    '),
           langCompartment.of(languageExtension(viewLanguage.current)),

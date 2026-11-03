@@ -1,20 +1,24 @@
 import { useState } from 'react'
-import type { CheckResult, RunResult, Rows } from '../run/runner.ts'
+import { Link } from 'react-router-dom'
+import type { Language } from '../api.ts'
+import type { CheckResult, RunResult, Rows, TestResult } from '../run/runner.ts'
 
 export type OutputTab = 'output' | 'result'
 
 type Props = {
+  setId: number
+  language: Language
   tab: OutputTab
   onTab: (tab: OutputTab) => void
   output: RunResult | null
-  verdict: CheckResult | null
+  verdict: CheckResult | TestResult[] | null
 }
 
 const MAX_ROWS = 200
 
-// Under the editor: the last run's rows, text, or error, and the last Check
-// verdict. Fixed height; Hide leaves only the tab row.
-export default function OutputPanel({ tab, onTab, output, verdict }: Props) {
+// Under the editor: the last run's rows, text, or error, and the last Check or
+// Run tests verdict. Fixed height; Hide leaves only the tab row.
+export default function OutputPanel({ setId, language, tab, onTab, output, verdict }: Props) {
   const [open, setOpen] = useState(true)
   const tabClass = (t: OutputTab) =>
     `rounded px-2 py-0.5 text-xs ${tab === t ? 'bg-gray-200 font-medium' : 'text-gray-600 hover:bg-gray-100'}`
@@ -38,7 +42,7 @@ export default function OutputPanel({ tab, onTab, output, verdict }: Props) {
       </div>
       {open && (
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2 text-sm" aria-label={tab === 'output' ? 'Output' : 'Result'}>
-          {tab === 'output' ? <Output output={output} /> : <Result verdict={verdict} />}
+          {tab === 'output' ? <Output output={output} /> : <Result setId={setId} language={language} verdict={verdict} />}
         </div>
       )}
     </div>
@@ -108,8 +112,15 @@ function cellText(v: unknown): string {
   return String(v)
 }
 
-function Result({ verdict }: { verdict: CheckResult | null }) {
-  if (verdict === null) return <p className="text-gray-500">Press Check to compare your query with the answer.</p>
+function Result({ setId, language, verdict }: { setId: number; language: Language; verdict: CheckResult | TestResult[] | null }) {
+  if (verdict === null) {
+    return (
+      <p className="text-gray-500">
+        {language === 'postgresql' ? 'Press Check to compare your query with the answer.' : 'Press Run tests to run the card\u2019s tests.'}
+      </p>
+    )
+  }
+  if (Array.isArray(verdict)) return <TestList setId={setId} results={verdict} />
   return (
     <>
       <p className={`font-medium ${verdict.ok ? 'text-green-700' : 'text-red-600'}`}>{verdict.message}</p>
@@ -125,6 +136,45 @@ function Result({ verdict }: { verdict: CheckResult | null }) {
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+function TestList({ setId, results }: { setId: number; results: TestResult[] }) {
+  if (results.length === 0) {
+    return (
+      <p className="text-gray-600">
+        This card has no tests. Add some in the{' '}
+        <Link to={`/sets/${setId}/edit`} className="text-blue-700 hover:underline">
+          editor
+        </Link>
+        .
+      </p>
+    )
+  }
+  const passed = results.filter((r) => r.ok).length
+  const all = passed === results.length
+  return (
+    <>
+      <p className={`font-medium ${all ? 'text-green-700' : 'text-red-600'}`}>
+        {passed} of {results.length} passed
+      </p>
+      <ul className="mt-2 space-y-1">
+        {results.map((r, i) => (
+          <li key={i}>
+            <span className={r.ok ? 'text-green-700' : 'text-red-600'} aria-label={r.ok ? 'passed' : 'failed'}>
+              {r.ok ? '\u2713' : '\u2717'}
+            </span>{' '}
+            <span className="font-mono text-xs">{r.name}</span>
+            {!r.ok && r.error && (
+              <p className="ml-5 font-mono text-xs text-red-600">
+                {r.error.message}
+                {r.error.line !== undefined && <span className="text-red-400"> (line {r.error.line} in the test)</span>}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
     </>
   )
 }

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Card, SetWithCards } from '../api.ts'
-import { createRunner, type CheckResult, type PrepareStatus, type RunError, type RunResult, type Runner } from '../run/runner.ts'
+import {
+  createRunner,
+  type CheckResult,
+  type PrepareStatus,
+  type RunError,
+  type RunResult,
+  type Runner,
+  type TestResult,
+} from '../run/runner.ts'
 import { SqlRunner, type Table } from '../run/sql.ts'
 import { LANGUAGES } from '../study/languages.ts'
 import CodeEditor from './CodeEditor.tsx'
@@ -36,7 +44,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [busy, setBusy] = useState(false)
   const [output, setOutput] = useState<RunResult | null>(null)
-  const [verdict, setVerdict] = useState<CheckResult | null>(null)
+  const [verdict, setVerdict] = useState<CheckResult | TestResult[] | null>(null)
   const [tab, setTab] = useState<OutputTab>('output')
   const [diagnostics, setDiagnostics] = useState<RunError | null>(null)
   // The editor keeps showing the last card while a summary is on screen.
@@ -108,24 +116,45 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
     }
   }
 
+  // Check and Run tests belong to one card. A verdict that arrives after the
+  // user moved to another card is dropped.
   async function check() {
     const r = runner.current
-    if (!r || !ready || !card) return
+    if (!r || !ready || !card || set.language !== 'postgresql') return
     setBusy(true)
     try {
-      setVerdict(await r.check(codeOf(card.id), card))
+      const result = await r.check(codeOf(card.id), card)
+      if (activeId.current !== card.id) return
+      setVerdict(result)
       setTab('result')
     } finally {
       setBusy(false)
     }
   }
 
-  // Cmd+Enter from the card side. The editor handles its own and marks the event as handled.
+  // A card with no tests gives an empty list; the Result tab explains it.
+  async function test() {
+    const r = runner.current
+    if (!r || !ready || !card || set.language !== 'python') return
+    setBusy(true)
+    try {
+      const result = card.tests.trim() === '' ? [] : await r.test(codeOf(card.id), card)
+      if (activeId.current !== card.id) return
+      setVerdict(result)
+      setTab('result')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Cmd+Enter and Cmd+Shift+Enter from the card side. The editor handles its
+  // own and marks the event as handled.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.shiftKey) return
+      if (e.defaultPrevented || e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return
       e.preventDefault()
-      void run()
+      if (e.shiftKey) void test()
+      else void run()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -190,6 +219,11 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
                   Check
                 </button>
               )}
+              {set.language === 'python' && (
+                <button type="button" onClick={() => void test()} disabled={!ready || !card} title="Cmd+Shift+Enter" className={toolButton}>
+                  Run tests
+                </button>
+              )}
               <button type="button" onClick={() => setClearToken((t) => t + 1)} className={toolButton}>
                 Clear
               </button>
@@ -204,11 +238,12 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
                 docs={docs}
                 onChange={codeChanged}
                 onRun={() => void run()}
+                onTest={() => void test()}
                 clearToken={clearToken}
                 diagnostics={diagnostics}
               />
             </div>
-            <OutputPanel tab={tab} onTab={setTab} output={output} verdict={verdict} />
+            <OutputPanel setId={set.id} language={set.language} tab={tab} onTab={setTab} output={output} verdict={verdict} />
           </>
         )}
       </section>
