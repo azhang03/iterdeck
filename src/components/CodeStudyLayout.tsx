@@ -116,12 +116,16 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
     }
   }
 
+  // Check and Run tests belong to one card. A verdict that arrives after the
+  // user moved to another card is dropped.
   async function check() {
     const r = runner.current
-    if (!r || !ready || !card) return
+    if (!r || !ready || !card || set.language !== 'postgresql') return
     setBusy(true)
     try {
-      setVerdict(await r.check(codeOf(card.id), card))
+      const result = await r.check(codeOf(card.id), card)
+      if (activeId.current !== card.id) return
+      setVerdict(result)
       setTab('result')
     } finally {
       setBusy(false)
@@ -131,10 +135,12 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   // A card with no tests gives an empty list; the Result tab explains it.
   async function test() {
     const r = runner.current
-    if (!r || !ready || !card) return
+    if (!r || !ready || !card || set.language !== 'python') return
     setBusy(true)
     try {
-      setVerdict(card.tests.trim() === '' ? [] : await r.test(codeOf(card.id), card))
+      const result = card.tests.trim() === '' ? [] : await r.test(codeOf(card.id), card)
+      if (activeId.current !== card.id) return
+      setVerdict(result)
       setTab('result')
     } finally {
       setBusy(false)
