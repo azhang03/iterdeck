@@ -10,8 +10,14 @@ export type Session = {
 
 // Python helpers that run the user's code with fresh globals and captured
 // output. Error lines come from the frame in the user's code or the test case.
+// Each test case runs against its own fresh execution of the solution, so no
+// state carries over between cases.
 const HELPER = `
-import contextlib, io, traceback
+import contextlib, io, textwrap, traceback
+
+def _iterdeck_message(e):
+    text = str(e)
+    return f'{type(e).__name__}: {text}' if text else type(e).__name__
 
 def _iterdeck_error(e, filename):
     if isinstance(e, SyntaxError) and e.filename == filename:
@@ -20,13 +26,19 @@ def _iterdeck_error(e, filename):
     for frame in traceback.extract_tb(e.__traceback__):
         if frame.filename == filename:
             line = frame.lineno
-    return {'message': f'{type(e).__name__}: {e}', 'line': line}
+    try:
+        message = _iterdeck_message(e)
+    except BaseException:
+        message = type(e).__name__
+    return {'message': message, 'line': line}
 
 def _iterdeck_exec(code, filename, g, out, err):
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             exec(compile(code, filename, 'exec'), g)
         return None
+    except SystemExit as e:
+        return None if e.code in (None, 0) else _iterdeck_error(e, filename)
     except BaseException as e:
         return _iterdeck_error(e, filename)
 
@@ -43,16 +55,16 @@ def _iterdeck_case_name(case):
     return case[:60]
 
 def _iterdeck_test(code, cases):
-    base = {'__name__': '__main__'}
-    out, err = io.StringIO(), io.StringIO()
-    error = _iterdeck_exec(code, '<user>', base, out, err)
     results = []
     for case in cases:
         name = _iterdeck_case_name(case)
+        g = {'__name__': '__main__'}
+        quiet = io.StringIO()
+        error = _iterdeck_exec(code, '<user>', g, quiet, quiet)
         if error is not None:
-            results.append({'name': name, 'ok': False, 'error': error})
+            results.append({'name': name, 'ok': False, 'error': {'message': 'The solution fails: ' + error['message'], 'line': None}})
             continue
-        case_error = _iterdeck_exec(case, '<case>', dict(base), io.StringIO(), io.StringIO())
+        case_error = _iterdeck_exec(textwrap.dedent(case), '<case>', g, quiet, quiet)
         results.append({'name': name, 'ok': case_error is None, 'error': case_error})
     return results
 `
