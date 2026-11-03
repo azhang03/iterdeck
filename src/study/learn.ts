@@ -1,5 +1,6 @@
 import type { Card } from '../api.ts'
 import type { Result } from './flashcards.ts'
+import { deckFor, isStudyOptions, type StudyOptions } from './options.ts'
 
 // Learn mode: the deck is split into groups of n. A group is one growing queue:
 // when a pass over the queue ends, the cards missed in that pass are appended and
@@ -184,6 +185,85 @@ function nextGroup(s: LearnState): LearnState {
 
 export function restart(s: LearnState): LearnState {
   return start(s.deck, s.n)
+}
+
+// The saved position: the start of the current group. Progress inside the group
+// is not kept, so a resumed session begins again at the group's first card.
+// Card ids, not cards, plus the options the session uses.
+export type Snapshot = {
+  options: StudyOptions
+  remaining: number[]
+  group: number[]
+  groupIndex: number
+  finishedGroups: number[]
+  carried: number | null
+}
+
+export function snapshot(s: LearnState, options: StudyOptions): Snapshot {
+  return {
+    options,
+    remaining: s.remaining.map((c) => c.id),
+    group: s.group.map((c) => c.id),
+    groupIndex: s.groupIndex,
+    finishedGroups: s.finishedGroups,
+    carried: s.carried,
+  }
+}
+
+const isIds = (v: unknown): v is number[] => Array.isArray(v) && v.every((x) => typeof x === 'number')
+
+function isSnapshot(v: unknown): v is Snapshot {
+  if (typeof v !== 'object' || v === null) return false
+  const o = v as Record<string, unknown>
+  return (
+    isStudyOptions(o.options) &&
+    isIds(o.remaining) &&
+    isIds(o.group) &&
+    typeof o.groupIndex === 'number' &&
+    isIds(o.finishedGroups) &&
+    (o.carried === null || typeof o.carried === 'number')
+  )
+}
+
+// Rebuilds the session at the start of the saved group. Null when the snapshot does
+// not fit the cards any more: a card is gone, or the groups do not add up to the deck.
+export function resume(cards: Card[], v: unknown): { state: LearnState; options: StudyOptions } | null {
+  if (!isSnapshot(v) || v.group.length === 0) return null
+  const deck = deckFor(cards, v.options)
+  const byId = new Map(deck.map((c) => [c.id, c]))
+  const pick = (ids: number[]): Card[] | null => {
+    const out: Card[] = []
+    for (const id of ids) {
+      const card = byId.get(id)
+      if (!card) return null
+      out.push(card)
+    }
+    return out
+  }
+  const remaining = pick(v.remaining)
+  const group = pick(v.group)
+  if (!remaining || !group) return null
+  if (v.carried !== null && !v.group.includes(v.carried)) return null
+  const finished = v.finishedGroups.reduce((a, b) => a + b, 0)
+  // A carried card is counted in its first group and again in this one.
+  if (finished + v.group.length - (v.carried === null ? 0 : 1) + v.remaining.length !== deck.length) return null
+  const state: LearnState = {
+    deck,
+    n: Math.max(1, Math.floor(v.options.groupSize)),
+    remaining,
+    group,
+    groupIndex: v.groupIndex,
+    finishedGroups: v.finishedGroups,
+    queue: group,
+    index: 0,
+    flipped: false,
+    results: [],
+    passes: [{ start: 0, solo: false }],
+    carry: null,
+    carried: v.carried,
+    phase: 'round',
+  }
+  return { state, options: v.options }
 }
 
 // Progress: one segment per group. Finished groups are full; the current group counts

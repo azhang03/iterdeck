@@ -10,21 +10,17 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useAsync, useCodeDocs, useCodeSaver } from '../hooks.ts'
+import { useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as fc from '../study/flashcards.ts'
-import { DEFAULT_OPTIONS, deckFor, type StudyOptions } from '../study/options.ts'
+import { deckFor, type StudyOptions } from '../study/options.ts'
 
 export default function Flashcards() {
   const { id } = useParams()
   const setId = Number(id)
-  const loaded = useAsync(() => api.sets.get(setId), [setId])
-  const [options, setOptions] = useState<StudyOptions>(DEFAULT_OPTIONS)
+  const page = useStudyPage(setId, 'flashcards', fc.resume)
+  const { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
-  // Changing the deck or the front side starts a new session; the key remounts it.
-  const [sessionKey, setSessionKey] = useState(0)
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
-  const docs = useCodeDocs(loaded.data)
-  const saveCode = useCodeSaver()
 
   useEffect(() => {
     void api.sets.open(setId).catch(() => {})
@@ -65,10 +61,13 @@ export default function Flashcards() {
           key={`${sessionKey}-${options.front}-${options.starredOnly}`}
           set={set}
           deck={deck}
+          initial={initial}
           options={options}
           paused={optionsOpen}
+          progress={progress}
           onOpenOptions={() => setOptionsOpen(true)}
-          code={{ focusSide, setFocusSide, docs, saveCode }}
+          onRestart={restart}
+          code={{ focusSide, setFocusSide, docs, saveCode: codeSaver.save }}
         />
       )}
       {optionsOpen && (
@@ -76,7 +75,7 @@ export default function Flashcards() {
           options={options}
           onChange={setOptions}
           onRestart={() => {
-            setSessionKey((k) => k + 1)
+            restart()
             setOptionsOpen(false)
           }}
           onClose={() => setOptionsOpen(false)}
@@ -98,14 +97,17 @@ type CodeState = {
 type SessionProps = {
   set: SetWithCards
   deck: Card[]
+  initial: fc.FlashcardsState | null
   options: StudyOptions
   paused: boolean
+  progress: ProgressSaver
   onOpenOptions: () => void
+  onRestart: () => void
   code: CodeState
 }
 
-function Session({ set, deck, options, paused, onOpenOptions, code }: SessionProps) {
-  const [s, setS] = useState(() => fc.start(deck))
+function Session({ set, deck, initial, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+  const [s, setS] = useState(() => initial ?? fc.start(deck))
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
   const over = fc.roundOver(s)
@@ -142,11 +144,11 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
     setS(state)
   }
 
-  function restart() {
-    failed.current.clear()
-    setError(null)
-    setS(fc.restart)
-  }
+  // The position is saved after every change, and dropped when every card is checked.
+  useEffect(() => {
+    if (fc.done(s)) progress.clear()
+    else progress.save(fc.snapshot(s, options))
+  }, [s, options, progress])
 
   useEffect(() => {
     // In code mode, keys act only when the card side was used last.
@@ -191,7 +193,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
       </p>
       {fc.done(s) ? (
         <div className="flex justify-center gap-3">
-          <PrimaryButton onClick={restart}>Restart</PrimaryButton>
+          <PrimaryButton onClick={onRestart}>Restart</PrimaryButton>
           <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
             Back to the set
           </Link>

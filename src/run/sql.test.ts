@@ -25,6 +25,7 @@ function makeSet(files: SetFile[]): SetWithCards {
     folder: null,
     cards: [],
     files,
+    progress: { flashcards: null, learn: null },
   }
 }
 

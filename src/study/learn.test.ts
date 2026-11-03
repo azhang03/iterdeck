@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import type { Card } from '../api.ts'
-import { canShuffle, cleared, current, groupSummary, isSolo, proceed, restart, segments, shuffle, sort, start, undo, type LearnState } from './learn.ts'
+import {
+  canShuffle,
+  cleared,
+  current,
+  groupSummary,
+  isSolo,
+  proceed,
+  restart,
+  resume,
+  segments,
+  shuffle,
+  snapshot,
+  sort,
+  start,
+  undo,
+  type LearnState,
+} from './learn.ts'
+import { DEFAULT_OPTIONS } from './options.ts'
 
 function card(id: number): Card {
   return {
@@ -270,5 +287,57 @@ describe('shuffle and restart', () => {
     s = restart(s)
     expect(s.groupIndex).toBe(0)
     expect(ids(s.group)).toEqual([1, 2, 3, 4, 5, 6, 7])
+  })
+})
+
+describe('snapshot and resume', () => {
+  it('comes back at the first card of the current group, with the earlier groups done', () => {
+    let s = start(deck(14), 7)
+    s = proceed(playGroup(s))
+    s = sort(s, true)
+    s = sort(s, false)
+    s = sort(s, true)
+    const snap = JSON.parse(JSON.stringify(snapshot(s, DEFAULT_OPTIONS)))
+    const r = resume(deck(14), snap)
+    expect(r).not.toBeNull()
+    expect(r!.state.groupIndex).toBe(1)
+    expect(ids(r!.state.group)).toEqual([8, 9, 10, 11, 12, 13, 14])
+    expect(current(r!.state)?.id).toBe(8)
+    expect(r!.state.results).toEqual([])
+    expect(r!.state.finishedGroups).toEqual([7])
+    expect(r!.state.remaining).toEqual([])
+    expect(segments(r!.state)).toEqual([
+      { size: 7, done: 7 },
+      { size: 7, done: 0 },
+    ])
+  })
+
+  it('keeps a carried card at the end of the resumed group', () => {
+    let s = start(deck(14), 7)
+    s = proceed(playGroup(s, [5]))
+    const r = resume(deck(14), snapshot(s, DEFAULT_OPTIONS))
+    expect(ids(r!.state.group)).toEqual([8, 9, 10, 11, 12, 13, 5])
+    expect(r!.state.carried).toBe(5)
+    expect(ids(r!.state.remaining)).toEqual([14])
+  })
+
+  it('keeps a shuffled order of the cards not yet grouped', () => {
+    let s = start(deck(20), 7)
+    s = shuffle(s, () => 0)
+    const r = resume(deck(20), snapshot(s, DEFAULT_OPTIONS))
+    expect(ids(r!.state.group)).toEqual(ids(s.group))
+    expect(ids(r!.state.remaining)).toEqual(ids(s.remaining))
+  })
+
+  it('is null when a card is gone, when the groups do not add up, or when the session is done', () => {
+    let s = start(deck(14), 7)
+    const snap = snapshot(s, DEFAULT_OPTIONS)
+    expect(resume(deck(13), snap)).toBeNull()
+    expect(resume(deck(15), snap)).toBeNull()
+    expect(resume(deck(14), { ...snap, carried: 99 })).toBeNull()
+    s = proceed(playGroup(proceed(playGroup(s))))
+    expect(s.phase).toBe('done')
+    expect(resume(deck(14), snapshot(s, DEFAULT_OPTIONS))).toBeNull()
+    expect(resume(deck(14), {})).toBeNull()
   })
 })

@@ -76,4 +76,15 @@ export type CardInput = {
 }
 
 export type FolderWithSets = Folder & { sets: CardSet[] }
-export type SetWithCards = CardSet & { folder: Pick<Folder, 'id' | 'name'> | null; cards: Card[]; files: SetFile[] }
+
+// A study session's saved position. The client defines the shape and checks it
+// when it resumes; the server stores it as JSON.
+export type StudyMode = 'flashcards' | 'learn'
+export type StudyProgress = Record<StudyMode, unknown>
+
+export type SetWithCards = CardSet & {
+  folder: Pick<Folder, 'id' | 'name'> | null
+  cards: Card[]
+  files: SetFile[]
+  progress: StudyProgress
+}

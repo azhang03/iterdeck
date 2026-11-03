@@ -1,4 +1,4 @@
-import type { Language, ListSort } from '../shared/types.ts'
+import type { Language, ListSort, StudyMode } from '../shared/types.ts'
 
 export class BadRequest extends Error {
   status = 400
@@ -45,6 +45,13 @@ export function language(v: unknown): Language | null {
   if (v === null) return null
   if (typeof v !== 'string' || !LANGUAGES.includes(v as Language)) throw new BadRequest('language must be python or postgresql')
   return v as Language
+}
+
+const STUDY_MODES: StudyMode[] = ['flashcards', 'learn']
+
+export function studyMode(v: unknown): StudyMode {
+  if (typeof v !== 'string' || !STUDY_MODES.includes(v as StudyMode)) throw new BadRequest('mode must be flashcards or learn')
+  return v as StudyMode
 }
 
 const SORTS: ListSort[] = ['created', 'used', 'name']

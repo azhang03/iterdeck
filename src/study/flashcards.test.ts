@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Card } from '../api.ts'
-import { current, done, flip, missed, nextRound, restart, roundOver, shuffle, sort, start, summary, undo } from './flashcards.ts'
+import { current, done, flip, missed, nextRound, restart, resume, roundOver, shuffle, snapshot, sort, start, summary, undo } from './flashcards.ts'
+import { DEFAULT_OPTIONS } from './options.ts'
 
 function card(id: number): Card {
   return {
@@ -124,5 +125,52 @@ describe('shuffle', () => {
     expect(ids(shuffled.queue.slice(2))).not.toEqual([3, 4, 5, 6, 7])
     expect(shuffled.results).toEqual(s.results)
     expect(current(shuffled)?.id).toBe(shuffled.queue[2].id)
+  })
+})
+
+describe('snapshot and resume', () => {
+  it('comes back at the first unsorted card with the same queue, results, and round', () => {
+    let s = start(deck)
+    s = sort(s, true)
+    s = sort(s, false)
+    s = flip(s)
+    const snap = JSON.parse(JSON.stringify(snapshot(s, DEFAULT_OPTIONS)))
+    const r = resume(deck, snap)
+    expect(r).not.toBeNull()
+    expect(ids(r!.state.queue)).toEqual(ids(s.queue))
+    expect(current(r!.state)?.id).toBe(3)
+    expect(r!.state.results).toEqual(s.results)
+    expect(r!.state.flipped).toBe(false)
+    expect(r!.options).toEqual(DEFAULT_OPTIONS)
+  })
+
+  it('keeps a shuffled order and a later round', () => {
+    let s = start(deck)
+    for (const checked of [false, true, false, true, true, true, true]) s = sort(s, checked)
+    s = nextRound(s)
+    s = shuffle(s, () => 0)
+    const r = resume(deck, snapshot(s, DEFAULT_OPTIONS))
+    expect(r!.state.round).toBe(2)
+    expect(ids(r!.state.queue)).toEqual(ids(s.queue))
+  })
+
+  it('applies the saved options to the deck', () => {
+    const starred = deck.map((c) => (c.id % 2 ? { ...c, starred: 1 as const } : c))
+    const options = { ...DEFAULT_OPTIONS, starredOnly: true, front: 'definition' as const }
+    const s = sort(start(starred.filter((c) => c.starred)), true)
+    const r = resume(starred, snapshot(s, options))
+    expect(ids(r!.state.deck)).toEqual([1, 3, 5, 7])
+    expect(r!.options.front).toBe('definition')
+  })
+
+  it('is null when a card is gone, when cards were added, or when the shape is wrong', () => {
+    const s = sort(start(deck), true)
+    const snap = snapshot(s, DEFAULT_OPTIONS)
+    expect(resume(deck.slice(1), snap)).toBeNull()
+    expect(resume([...deck, card(8)], snap)).toBeNull()
+    expect(resume(deck, { ...snap, index: 9 })).toBeNull()
+    expect(resume(deck, { ...snap, results: [{ cardId: 2, checked: true }] })).toBeNull()
+    expect(resume(deck, null)).toBeNull()
+    expect(resume(deck, { queue: 'x' })).toBeNull()
   })
 })

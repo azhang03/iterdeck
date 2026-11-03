@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import type { Db } from '../db.ts'
 import { now } from '../db.ts'
-import type { Card, CardInput, CardSet, SetWithCards } from '../../shared/types.ts'
-import { BadRequest, NotFound, bool, id, idOrNull, language, listSort, nonEmptyText, orderBy, query, text } from '../validate.ts'
+import type { Card, CardInput, CardSet, SetWithCards, StudyMode, StudyProgress } from '../../shared/types.ts'
+import { BadRequest, NotFound, bool, id, idOrNull, language, listSort, nonEmptyText, orderBy, query, studyMode, text } from '../validate.ts'
 import { getFolder, like } from './folders.ts'
 import { sweepOrphanImages } from '../images.ts'
 import { listFiles } from './files.ts'
@@ -91,6 +91,36 @@ export function setsRouter(db: Db, dirs: { imagesDir: string; filesDir: string }
     void sweepOrphanImages(db, dirs.imagesDir)
   })
 
+  // A study session's position. The body is the client's snapshot, stored as is.
+  r.put('/:id/progress/:mode', (req, res) => {
+    const setId = id(req.params.id, 'id')
+    const mode = studyMode(req.params.mode)
+    getSet(db, setId)
+    if (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body)) throw new BadRequest('body must be an object')
+    const state = JSON.stringify(req.body)
+    if (state.length > MAX_PROGRESS_CHARS) throw new BadRequest('progress is too large')
+    db.prepare(
+      'INSERT INTO study_progress (set_id, mode, state, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (set_id, mode) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at',
+    ).run(setId, mode, state, now())
+    res.status(204).end()
+  })
+
+  r.delete('/:id/progress/:mode', (req, res) => {
+    const setId = id(req.params.id, 'id')
+    const mode = studyMode(req.params.mode)
+    getSet(db, setId)
+    db.prepare('DELETE FROM study_progress WHERE set_id = ? AND mode = ?').run(setId, mode)
+    res.status(204).end()
+  })
+
+  // Restart in a study mode: the code written for every card goes.
+  r.delete('/:id/code', (req, res) => {
+    const setId = id(req.params.id, 'id')
+    getSet(db, setId)
+    db.prepare("UPDATE cards SET code = '' WHERE set_id = ?").run(setId)
+    res.status(204).end()
+  })
+
   r.delete('/:id', async (req, res) => {
     const setId = id(req.params.id, 'id')
     getSet(db, setId)
@@ -123,14 +153,24 @@ export function getCards(db: Db, setId: number): Card[] {
   return db.prepare(`${CARD_SELECT} WHERE c.set_id = ? ORDER BY c.position, c.id`).all(setId) as Card[]
 }
 
-// The set, the folder it is in (id and name, or null), its cards, and its CSV files.
+// The set, the folder it is in (id and name, or null), its cards, its CSV files,
+// and the saved study progress per mode.
 function setWithCards(db: Db, setId: number): SetWithCards {
   const set = getSet(db, setId)
   const folder =
     set.folder_id === null
       ? null
       : ((db.prepare('SELECT id, name FROM folders WHERE id = ?').get(set.folder_id) as SetWithCards['folder']) ?? null)
-  return { ...set, folder, cards: getCards(db, setId), files: listFiles(db, setId) }
+  return { ...set, folder, cards: getCards(db, setId), files: listFiles(db, setId), progress: getProgress(db, setId) }
+}
+
+const MAX_PROGRESS_CHARS = 100000
+
+function getProgress(db: Db, setId: number): StudyProgress {
+  const rows = db.prepare('SELECT mode, state FROM study_progress WHERE set_id = ?').all(setId) as { mode: StudyMode; state: string }[]
+  const progress: StudyProgress = { flashcards: null, learn: null }
+  for (const row of rows) progress[row.mode] = JSON.parse(row.state)
+  return progress
 }
 
 export function getCard(db: Db, cardId: number): Card | undefined {

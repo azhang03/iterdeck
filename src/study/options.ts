@@ -11,6 +11,12 @@ export type StudyOptions = {
 
 export const DEFAULT_OPTIONS: StudyOptions = { front: 'term', starredOnly: false, groupSize: 7 }
 
+export function isStudyOptions(v: unknown): v is StudyOptions {
+  if (typeof v !== 'object' || v === null) return false
+  const o = v as Record<string, unknown>
+  return (o.front === 'term' || o.front === 'definition') && typeof o.starredOnly === 'boolean' && typeof o.groupSize === 'number' && o.groupSize >= 1
+}
+
 export function deckFor(cards: Card[], options: StudyOptions): Card[] {
   const ordered = [...cards].sort((a, b) => a.position - b.position)
   return options.starredOnly ? ordered.filter((c) => c.starred === 1) : ordered

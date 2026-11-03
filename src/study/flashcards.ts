@@ -1,4 +1,5 @@
 import type { Card } from '../api.ts'
+import { deckFor, isStudyOptions, type StudyOptions } from './options.ts'
 
 // Flashcards mode: one pass over a queue, then rounds over the missed cards
 // until none are missed. Pure functions over a state object; the page renders
@@ -82,4 +83,51 @@ export function nextRound(s: FlashcardsState): FlashcardsState {
 
 export function restart(s: FlashcardsState): FlashcardsState {
   return start(s.deck)
+}
+
+// The saved position: card ids, not cards, plus the options the session uses.
+// The flipped side is not kept.
+export type Snapshot = {
+  options: StudyOptions
+  queue: number[]
+  index: number
+  results: Result[]
+  round: number
+}
+
+export function snapshot(s: FlashcardsState, options: StudyOptions): Snapshot {
+  return { options, queue: s.queue.map((c) => c.id), index: s.index, results: s.results, round: s.round }
+}
+
+function isSnapshot(v: unknown): v is Snapshot {
+  if (typeof v !== 'object' || v === null) return false
+  const o = v as Record<string, unknown>
+  return (
+    isStudyOptions(o.options) &&
+    Array.isArray(o.queue) &&
+    o.queue.every((x) => typeof x === 'number') &&
+    typeof o.index === 'number' &&
+    Array.isArray(o.results) &&
+    o.results.every((r) => typeof r === 'object' && r !== null && typeof (r as Result).cardId === 'number' && typeof (r as Result).checked === 'boolean') &&
+    typeof o.round === 'number'
+  )
+}
+
+// Rebuilds the session from a snapshot and the set's cards. Null when the snapshot
+// does not fit the cards any more: a card is gone, or the first round does not
+// cover the deck (cards were added).
+export function resume(cards: Card[], v: unknown): { state: FlashcardsState; options: StudyOptions } | null {
+  if (!isSnapshot(v)) return null
+  const deck = deckFor(cards, v.options)
+  const byId = new Map(deck.map((c) => [c.id, c]))
+  const queue: Card[] = []
+  for (const id of v.queue) {
+    const card = byId.get(id)
+    if (!card) return null
+    queue.push(card)
+  }
+  if (v.round === 1 && queue.length !== deck.length) return null
+  if (v.index < 0 || v.index > queue.length || v.results.length !== v.index) return null
+  if (v.results.some((r, i) => r.cardId !== queue[i].id)) return null
+  return { state: { deck, queue, index: v.index, flipped: false, results: v.results, round: v.round }, options: v.options }
 }

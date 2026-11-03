@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type SetWithCards } from './api.ts'
+import { api, type Card, type SetWithCards, type StudyMode } from './api.ts'
+import { DEFAULT_OPTIONS, type StudyOptions } from './study/options.ts'
 
 export type Async<T> = { data: T | null; error: string | null; loading: boolean; reload: () => void }
 
@@ -63,11 +64,17 @@ const SAVE_DELAY_MS = 500
 
 type PendingSave = { timer: ReturnType<typeof setTimeout>; code: string }
 
+export type CodeSaver = {
+  save: (cardId: number, code: string) => void
+  // Drops pending saves and waits for the ones in flight. For Restart, which clears the code.
+  discard: () => Promise<void>
+}
+
 // Debounced PATCH of cards.code, one timer per card. Saves for one card go out
 // one after another, so an older text cannot land after a newer one. Pending
 // saves are sent at once on unmount and on pagehide (reload, tab close).
 // A failed save is dropped; the next edit sends the text again.
-export function useCodeSaver(): (cardId: number, code: string) => void {
+export function useCodeSaver(): CodeSaver {
   const pending = useRef(new Map<number, PendingSave>())
   const chains = useRef(new Map<number, Promise<void>>())
 
@@ -97,17 +104,88 @@ export function useCodeSaver(): (cardId: number, code: string) => void {
     }
   }, [send])
 
-  return useCallback(
-    (cardId: number, code: string) => {
-      const map = pending.current
-      const prev = map.get(cardId)
-      if (prev) clearTimeout(prev.timer)
-      const timer = setTimeout(() => {
-        map.delete(cardId)
-        send(cardId, code)
-      }, SAVE_DELAY_MS)
-      map.set(cardId, { timer, code })
-    },
+  return useMemo(
+    () => ({
+      save(cardId: number, code: string) {
+        const map = pending.current
+        const prev = map.get(cardId)
+        if (prev) clearTimeout(prev.timer)
+        const timer = setTimeout(() => {
+          map.delete(cardId)
+          send(cardId, code)
+        }, SAVE_DELAY_MS)
+        map.set(cardId, { timer, code })
+      },
+      async discard() {
+        for (const p of pending.current.values()) clearTimeout(p.timer)
+        pending.current.clear()
+        await Promise.all(chains.current.values())
+      },
+    }),
     [send],
   )
+}
+
+export type ProgressSaver = {
+  save: (state: object) => void
+  clear: () => void
+}
+
+// Saves a study session's snapshot for the set and mode. Requests go out in
+// order; a snapshot equal to the last one sent is skipped. Failures are dropped.
+export function useProgressSaver(setId: number, mode: StudyMode): ProgressSaver {
+  const chain = useRef(Promise.resolve())
+  const last = useRef<string | null>(null)
+  return useMemo(() => {
+    const queue = (key: string, work: () => Promise<void>) => {
+      if (last.current === key) return
+      last.current = key
+      chain.current = chain.current.then(work).catch(() => {})
+    }
+    return {
+      save: (state) => {
+        const json = JSON.stringify(state)
+        queue(json, () => api.sets.saveProgress(setId, mode, JSON.parse(json) as object))
+      },
+      clear: () => queue('', () => api.sets.clearProgress(setId, mode)),
+    }
+  }, [setId, mode])
+}
+
+type Resume<S> = (cards: Card[], saved: unknown) => { state: S; options: StudyOptions } | null
+
+export type StudyPage<S> = {
+  loaded: Async<SetWithCards>
+  options: StudyOptions
+  setOptions: (options: StudyOptions) => void
+  sessionKey: number
+  // The saved session to continue, for the first session only; null starts fresh.
+  initial: S | null
+  docs: Map<number, string>
+  codeSaver: CodeSaver
+  progress: ProgressSaver
+  // A new session from the first card. Also clears the code written for every card.
+  restart: () => void
+}
+
+// What Flashcards and Learn share: the set, the options, the saved session, the
+// code per card, and Restart. A saved session brings its options back with it;
+// changing an option starts a fresh session.
+export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S>): StudyPage<S> {
+  const loaded = useAsync(() => api.sets.get(setId), [setId])
+  const [chosen, setOptions] = useState<StudyOptions | null>(null)
+  const [sessionKey, setSessionKey] = useState(0)
+  const docs = useCodeDocs(loaded.data)
+  const codeSaver = useCodeSaver()
+  const progress = useProgressSaver(setId, mode)
+  const set = loaded.data
+  const resumed = useMemo(() => (set ? resume(set.cards, set.progress[mode]) : null), [set, mode, resume])
+  const options = chosen ?? resumed?.options ?? DEFAULT_OPTIONS
+  const initial = sessionKey === 0 && chosen === null ? (resumed?.state ?? null) : null
+  const restart = useCallback(() => {
+    setSessionKey((k) => k + 1)
+    docs.clear()
+    void codeSaver.discard().then(() => api.sets.clearCode(setId).catch(() => {}))
+  }, [docs, codeSaver, setId])
+  return { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart }
 }
