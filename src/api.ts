@@ -21,8 +21,10 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method }
+type RequestOptions = { keepalive?: boolean }
+
+async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}): Promise<T> {
+  const init: RequestInit = { method, keepalive: opts.keepalive }
   if (body instanceof FormData) {
     init.body = body
   } else if (body !== undefined) {
@@ -68,8 +70,11 @@ export const api = {
     remove: (id: number) => request<void>('DELETE', `/api/sets/${id}`),
   },
   cards: {
-    update: (id: number, patch: { term?: string; definition?: string; starred?: boolean; tests?: string; ordered?: boolean; code?: string }) =>
-      request<Card>('PATCH', `/api/cards/${id}`, patch),
+    update: (
+      id: number,
+      patch: { term?: string; definition?: string; starred?: boolean; tests?: string; ordered?: boolean; code?: string },
+      opts: RequestOptions = {},
+    ) => request<Card>('PATCH', `/api/cards/${id}`, patch, opts),
     sort: (id: number, checked: boolean, undo = false) => request<Card>('POST', `/api/cards/${id}/sort`, { checked, undo }),
   },
   images: {
