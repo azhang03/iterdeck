@@ -16,6 +16,9 @@ function card(id: number, position: number, checked: number, sorted: number): Ca
     starred: 0,
     checked_count: checked,
     sorted_count: sorted,
+    tests: '',
+    ordered: 0,
+    code: '',
     created_at: '',
   }
 }

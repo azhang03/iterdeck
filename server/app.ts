@@ -4,9 +4,12 @@ import type { Db } from './db.ts'
 import { cardsRouter } from './routes/cards.ts'
 import { foldersRouter } from './routes/folders.ts'
 import { imagesRouter } from './routes/images.ts'
+import { filesRouter } from './routes/files.ts'
 import { setsRouter } from './routes/sets.ts'
 
-export function createApp(db: Db, imagesDir: string) {
+export type Dirs = { imagesDir: string; filesDir: string }
+
+export function createApp(db: Db, dirs: Dirs) {
   const app = express()
   app.use(express.json({ limit: '5mb' }))
 
@@ -14,10 +17,12 @@ export function createApp(db: Db, imagesDir: string) {
     res.json({ ok: true })
   })
   app.use('/api/folders', foldersRouter(db))
-  app.use('/api/sets', setsRouter(db, imagesDir))
+  app.use('/api/sets', setsRouter(db, dirs))
+  app.use('/api/sets/:id/files', filesRouter(db, dirs.filesDir))
   app.use('/api/cards', cardsRouter(db))
-  app.use('/api/images', imagesRouter(db, imagesDir))
-  app.use('/images', express.static(imagesDir))
+  app.use('/api/images', imagesRouter(db, dirs.imagesDir))
+  app.use('/images', express.static(dirs.imagesDir))
+  app.use('/files', express.static(dirs.filesDir))
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'route not found' })

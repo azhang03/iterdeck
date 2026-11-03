@@ -7,11 +7,14 @@ export type Folder = {
   last_used_at: string
 }
 
+export type Language = 'python' | 'postgresql'
+
 export type CardSet = {
   id: number
   title: string
   folder_id: number | null
   code_mode: 0 | 1
+  language: Language | null
   created_at: string
   updated_at: string
   last_used_at: string
@@ -31,6 +34,10 @@ export type Card = {
   starred: 0 | 1
   checked_count: number
   sorted_count: number
+  // Code mode: test cases for Python, row order for PostgreSQL, the saved code.
+  tests: string
+  ordered: 0 | 1
+  code: string
   created_at: string
 }
 
@@ -38,6 +45,20 @@ export type Image = {
   id: number
   file: string
   mime: string
+  created_at: string
+}
+
+export type ColumnType = 'bigint' | 'numeric' | 'boolean' | 'date' | 'timestamptz' | 'text'
+
+// A CSV file loaded as a table when a PostgreSQL set runs.
+export type SetFile = {
+  id: number
+  set_id: number
+  table_name: string
+  file: string
+  columns: { name: string; type: ColumnType }[]
+  row_count: number
+  size: number
   created_at: string
 }
 
@@ -50,7 +71,9 @@ export type CardInput = {
   definition: string
   term_image_id: number | null
   definition_image_id: number | null
+  tests: string
+  ordered: boolean
 }
 
 export type FolderWithSets = Folder & { sets: CardSet[] }
-export type SetWithCards = CardSet & { folder: Pick<Folder, 'id' | 'name'> | null; cards: Card[] }
+export type SetWithCards = CardSet & { folder: Pick<Folder, 'id' | 'name'> | null; cards: Card[]; files: SetFile[] }

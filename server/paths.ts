@@ -6,3 +6,4 @@ import { fileURLToPath } from 'node:url'
 export const DATA_DIR = process.env.ITERDECK_DATA ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'data')
 
 mkdirSync(`${DATA_DIR}/images`, { recursive: true })
+mkdirSync(`${DATA_DIR}/files`, { recursive: true })

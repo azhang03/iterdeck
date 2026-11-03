@@ -25,6 +25,18 @@ export function cardsRouter(db: Db) {
       fields.push('starred = ?')
       params.push(bool(body.starred, 'starred'))
     }
+    if (body.tests !== undefined) {
+      fields.push('tests = ?')
+      params.push(text(body.tests, 'tests', 20000))
+    }
+    if (body.ordered !== undefined) {
+      fields.push('ordered = ?')
+      params.push(bool(body.ordered, 'ordered'))
+    }
+    if (body.code !== undefined) {
+      fields.push('code = ?')
+      params.push(text(body.code, 'code', 100000))
+    }
     if (fields.length === 0) throw new BadRequest('nothing to update')
     params.push(cardId)
     db.prepare(`UPDATE cards SET ${fields.join(', ')} WHERE id = ?`).run(...params)

@@ -1,4 +1,4 @@
-import type { ListSort } from '../shared/types.ts'
+import type { Language, ListSort } from '../shared/types.ts'
 
 export class BadRequest extends Error {
   status = 400
@@ -37,6 +37,14 @@ export function idOrNull(v: unknown, field: string): number | null {
 export function bool(v: unknown, field: string): 0 | 1 {
   if (typeof v !== 'boolean') throw new BadRequest(`${field} must be a boolean`)
   return v ? 1 : 0
+}
+
+const LANGUAGES: Language[] = ['python', 'postgresql']
+
+export function language(v: unknown): Language | null {
+  if (v === null) return null
+  if (typeof v !== 'string' || !LANGUAGES.includes(v as Language)) throw new BadRequest('language must be python or postgresql')
+  return v as Language
 }
 
 const SORTS: ListSort[] = ['created', 'used', 'name']
