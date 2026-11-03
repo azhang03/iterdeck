@@ -45,27 +45,30 @@ export function filesRouter(db: Db, filesDir: string) {
   })
 
   // multer writes to a temp name in filesDir; the row id then gives the final name.
+  // On any failure, the row (when inserted) and the temp file are removed again.
   r.post<'/', SetParams>('/', upload.single('file'), async (req, res) => {
     const setId = id(req.params.id, 'id')
     if (!req.file) throw new BadRequest('file is required')
     const temp = req.file.path
-    let info
+    const name = tableName(req.file.originalname)
+    let fileId: number
     try {
       getSet(db, setId)
-      const name = tableName(req.file.originalname)
       const exists = db.prepare('SELECT 1 FROM set_files WHERE set_id = ? AND table_name = ?').get(setId, name)
       if (exists) throw new BadRequest(`a table named ${name} already exists in this set`)
-      info = { name, ...(await inspectCsv(temp)) }
+      const info = await inspectCsv(temp)
+      const result = db
+        .prepare(
+          'INSERT INTO set_files (set_id, table_name, file, columns, row_count, size, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(setId, name, '', JSON.stringify(info.columns), info.row_count, req.file.size, now())
+      fileId = Number(result.lastInsertRowid)
     } catch (err) {
       await unlink(temp).catch(() => {})
+      // A second upload of the same name that passed the check during inspectCsv.
+      if (isUniqueViolation(err)) throw new BadRequest(`a table named ${name} already exists in this set`)
       throw err
     }
-    const result = db
-      .prepare(
-        'INSERT INTO set_files (set_id, table_name, file, columns, row_count, size, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      )
-      .run(setId, info.name, '', JSON.stringify(info.columns), info.row_count, req.file.size, now())
-    const fileId = Number(result.lastInsertRowid)
     const file = `${fileId}.csv`
     try {
       await rename(temp, join(filesDir, file))
@@ -89,4 +92,8 @@ export function filesRouter(db: Db, filesDir: string) {
   })
 
   return r
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Error && 'code' in err && err.code === 'SQLITE_CONSTRAINT_UNIQUE'
 }

@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs'
-import { parse } from 'csv-parse'
+import { CsvError, parse } from 'csv-parse'
 import type { ColumnType } from '../shared/types.ts'
 import { BadRequest } from './validate.ts'
 
@@ -23,9 +23,13 @@ export function tableName(fileName: string): string {
 }
 
 export function columnName(header: string, index: number): string {
-  const base = header.trim()
-  if (base === '') return `col_${index + 1}`
-  return identifier(base)
+  const cleaned = header
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  if (cleaned === '') return `col_${index + 1}`
+  return identifier(cleaned)
 }
 
 const BIGINT = /^-?\d{1,18}$/
@@ -40,7 +44,7 @@ export function inferType(samples: string[]): ColumnType {
   if (cells.length === 0) return 'text'
   if (cells.every((c) => BIGINT.test(c))) return 'bigint'
   if (cells.every((c) => NUMERIC.test(c))) return 'numeric'
-  if (cells.every((c) => BOOLEAN[c.toLowerCase()])) return 'boolean'
+  if (cells.every((c) => Object.hasOwn(BOOLEAN, c.toLowerCase()))) return 'boolean'
   if (cells.every((c) => DATE.test(c))) return 'date'
   if (cells.every((c) => TIMESTAMP.test(c))) return 'timestamptz'
   return 'text'
@@ -49,26 +53,36 @@ export function inferType(samples: string[]): ColumnType {
 export type CsvInfo = { columns: { name: string; type: ColumnType }[]; row_count: number }
 
 // Reads the header, samples the first rows for types, and counts all rows.
+// Every row must have the header's column count: COPY in the browser rejects
+// short and long rows, so the upload rejects them too.
 export async function inspectCsv(path: string): Promise<CsvInfo> {
-  const parser = createReadStream(path).pipe(parse({ relax_column_count: true, bom: true }))
+  const source = createReadStream(path)
+  const parser = source.pipe(parse({ bom: true, skip_empty_lines: true }))
   let names: string[] | null = null
   let samples: string[][] = []
   let rowCount = 0
-  for await (const record of parser as AsyncIterable<string[]>) {
-    if (names === null) {
-      names = record.map(columnName)
-      const seen = new Set<string>()
-      for (const n of names) {
-        if (seen.has(n)) throw new BadRequest(`duplicate column name ${n}`)
-        seen.add(n)
+  try {
+    for await (const record of parser as AsyncIterable<string[]>) {
+      if (names === null) {
+        names = record.map(columnName)
+        const seen = new Set<string>()
+        for (const n of names) {
+          if (seen.has(n)) throw new BadRequest(`duplicate column name ${n}`)
+          seen.add(n)
+        }
+        samples = names.map(() => [])
+        continue
       }
-      samples = names.map(() => [])
-      continue
+      rowCount++
+      if (rowCount <= SAMPLE_ROWS) {
+        names.forEach((_, i) => samples[i].push(record[i]))
+      }
     }
-    rowCount++
-    if (rowCount <= SAMPLE_ROWS) {
-      names.forEach((_, i) => samples[i].push(record[i] ?? ''))
-    }
+  } catch (err) {
+    if (err instanceof CsvError) throw new BadRequest(`invalid CSV: ${err.message}`)
+    throw err
+  } finally {
+    source.destroy()
   }
   if (names === null) throw new BadRequest('the CSV has no header row')
   return {

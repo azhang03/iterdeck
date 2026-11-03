@@ -18,6 +18,8 @@ describe('names', () => {
     expect(columnName('', 2)).toBe('col_3')
     expect(columnName('   ', 0)).toBe('col_1')
     expect(columnName('2nd', 0)).toBe('t_2nd')
+    expect(columnName('#', 0)).toBe('col_1')
+    expect(columnName('%', 1)).toBe('col_2')
   })
 })
 
@@ -63,13 +65,22 @@ describe('inspectCsv', () => {
     expect(info.row_count).toBe(2)
   })
 
-  it('treats a short row as empty cells and strips a BOM', async () => {
-    const info = await inspectCsv(file('b.csv', '\uFEFFx,y\n1\n2,3\n'))
+  it('strips a BOM, skips blank lines, and rejects a short row', async () => {
+    const info = await inspectCsv(file('b.csv', '\uFEFFx,y\n1,2\n\n2,3\n\n'))
     expect(info.columns).toEqual([
       { name: 'x', type: 'bigint' },
       { name: 'y', type: 'bigint' },
     ])
     expect(info.row_count).toBe(2)
+    await expect(inspectCsv(file('short.csv', 'x,y\n1\n'))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects a broken quote with 400', async () => {
+    await expect(inspectCsv(file('quote.csv', 'a,b\n1,"open\n'))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('does not read inherited object keys as booleans', () => {
+    expect(inferType(['constructor', 'toString'])).toBe('text')
   })
 
   it('counts rows past the sample window', async () => {
