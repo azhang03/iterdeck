@@ -164,7 +164,8 @@ function setWithCards(db: Db, setId: number): SetWithCards {
   return { ...set, folder, cards: getCards(db, setId), files: listFiles(db, setId), progress: getProgress(db, setId) }
 }
 
-const MAX_PROGRESS_CHARS = 100000
+// Under the 5 MB JSON body limit. A Flashcards snapshot grows with the sorted cards.
+const MAX_PROGRESS_CHARS = 2_000_000
 
 function getProgress(db: Db, setId: number): StudyProgress {
   const rows = db.prepare('SELECT mode, state FROM study_progress WHERE set_id = ?').all(setId) as { mode: StudyMode; state: string }[]

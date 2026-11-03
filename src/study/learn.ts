@@ -192,6 +192,7 @@ export function restart(s: LearnState): LearnState {
 // Card ids, not cards, plus the options the session uses.
 export type Snapshot = {
   options: StudyOptions
+  deckSize: number
   remaining: number[]
   group: number[]
   groupIndex: number
@@ -202,6 +203,7 @@ export type Snapshot = {
 export function snapshot(s: LearnState, options: StudyOptions): Snapshot {
   return {
     options,
+    deckSize: s.deck.length,
     remaining: s.remaining.map((c) => c.id),
     group: s.group.map((c) => c.id),
     groupIndex: s.groupIndex,
@@ -217,6 +219,7 @@ function isSnapshot(v: unknown): v is Snapshot {
   const o = v as Record<string, unknown>
   return (
     isStudyOptions(o.options) &&
+    typeof o.deckSize === 'number' &&
     isIds(o.remaining) &&
     isIds(o.group) &&
     typeof o.groupIndex === 'number' &&
@@ -226,7 +229,7 @@ function isSnapshot(v: unknown): v is Snapshot {
 }
 
 // Rebuilds the session at the start of the saved group. Null when the snapshot does
-// not fit the cards any more: a card is gone, or the groups do not add up to the deck.
+// not fit the cards any more: a card is gone, or cards were added or removed.
 export function resume(cards: Card[], v: unknown): { state: LearnState; options: StudyOptions } | null {
   if (!isSnapshot(v) || v.group.length === 0) return null
   const deck = deckFor(cards, v.options)
@@ -244,9 +247,7 @@ export function resume(cards: Card[], v: unknown): { state: LearnState; options:
   const group = pick(v.group)
   if (!remaining || !group) return null
   if (v.carried !== null && !v.group.includes(v.carried)) return null
-  const finished = v.finishedGroups.reduce((a, b) => a + b, 0)
-  // A carried card is counted in its first group and again in this one.
-  if (finished + v.group.length - (v.carried === null ? 0 : 1) + v.remaining.length !== deck.length) return null
+  if (v.deckSize !== deck.length) return null
   const state: LearnState = {
     deck,
     n: Math.max(1, Math.floor(v.options.groupSize)),

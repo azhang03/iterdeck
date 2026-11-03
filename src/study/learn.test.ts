@@ -321,6 +321,19 @@ describe('snapshot and resume', () => {
     expect(ids(r!.state.remaining)).toEqual([14])
   })
 
+  it('resumes a later group after a carried card was counted in two finished groups', () => {
+    // Groups of 2 over a, b, c, d: b is carried into [c, b]; group 3 is [d].
+    let s = start(deck(4), 2)
+    s = proceed(playGroup(s, [2]))
+    expect(ids(s.group)).toEqual([3, 2])
+    s = proceed(playGroup(s))
+    expect(ids(s.group)).toEqual([4])
+    const r = resume(deck(4), snapshot(s, DEFAULT_OPTIONS))
+    expect(r).not.toBeNull()
+    expect(ids(r!.state.group)).toEqual([4])
+    expect(r!.state.finishedGroups).toEqual([2, 2])
+  })
+
   it('keeps a shuffled order of the cards not yet grouped', () => {
     let s = start(deck(20), 7)
     s = shuffle(s, () => 0)

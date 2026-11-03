@@ -66,8 +66,9 @@ type PendingSave = { timer: ReturnType<typeof setTimeout>; code: string }
 
 export type CodeSaver = {
   save: (cardId: number, code: string) => void
-  // Drops pending saves and waits for the ones in flight. For Restart, which clears the code.
-  discard: () => Promise<void>
+  // For Restart: drops pending saves, waits for the ones in flight, then runs
+  // `clear`. Saves made meanwhile go out after it.
+  discard: (clear: () => Promise<void>) => void
 }
 
 // Debounced PATCH of cards.code, one timer per card. Saves for one card go out
@@ -77,13 +78,17 @@ export type CodeSaver = {
 export function useCodeSaver(): CodeSaver {
   const pending = useRef(new Map<number, PendingSave>())
   const chains = useRef(new Map<number, Promise<void>>())
+  // Settled once the last Restart has cleared the code on the server.
+  const gate = useRef(Promise.resolve())
 
   const send = useCallback((cardId: number, code: string, keepalive = false) => {
     const prev = chains.current.get(cardId) ?? Promise.resolve()
-    const next = prev.then(() => api.cards.update(cardId, { code }, { keepalive })).then(
-      () => {},
-      () => {},
-    )
+    const next = Promise.all([prev, gate.current])
+      .then(() => api.cards.update(cardId, { code }, { keepalive }))
+      .then(
+        () => {},
+        () => {},
+      )
     chains.current.set(cardId, next)
   }, [])
 
@@ -116,10 +121,15 @@ export function useCodeSaver(): CodeSaver {
         }, SAVE_DELAY_MS)
         map.set(cardId, { timer, code })
       },
-      async discard() {
+      discard(clear: () => Promise<void>) {
         for (const p of pending.current.values()) clearTimeout(p.timer)
         pending.current.clear()
-        await Promise.all(chains.current.values())
+        gate.current = Promise.all(chains.current.values())
+          .then(clear)
+          .then(
+            () => {},
+            () => {},
+          )
       },
     }),
     [send],
@@ -185,7 +195,7 @@ export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S
   const restart = useCallback(() => {
     setSessionKey((k) => k + 1)
     docs.clear()
-    void codeSaver.discard().then(() => api.sets.clearCode(setId).catch(() => {}))
+    codeSaver.discard(() => api.sets.clearCode(setId))
   }, [docs, codeSaver, setId])
   return { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart }
 }
