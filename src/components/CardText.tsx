@@ -11,8 +11,10 @@ type Parser = typeof pythonLanguage.parser
 type Props = { text: string; className?: string }
 
 // A card side as markdown. Styles live under .card-text in index.css.
-// Single line breaks stay line breaks (remark-breaks), so cards written as
-// plain text look as before. Raw HTML is not rendered.
+// Single line breaks stay line breaks (remark-breaks), so a card written as
+// plain text keeps its lines; leading spaces are markdown's to drop, so
+// indented code needs a fenced block. Raw HTML shows as text. A link opens
+// in a new tab and does not flip the card it sits on.
 export default function CardText({ text, className }: Props) {
   return (
     <div className={className ? `card-text ${className}` : 'card-text'}>
@@ -44,6 +46,13 @@ const components: Components = {
     const parser = lang ? parsers[lang] : undefined
     if (!parser || typeof children !== 'string') return <code className={className}>{children}</code>
     return <code className={className}>{highlight(children, parser)}</code>
+  },
+  a({ href, children }) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </a>
+    )
   },
 }
 

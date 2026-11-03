@@ -38,6 +38,7 @@
   }
   .card-text li > ul,
   .card-text li > ol {
+    display: block;
     margin-top: 0.25em;
   }
   .card-text blockquote {
