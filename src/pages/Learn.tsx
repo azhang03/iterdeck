@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
@@ -10,7 +10,7 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useAsync } from '../hooks.ts'
+import { useAsync, useCodeDocs, useCodeSaver } from '../hooks.ts'
 import * as learn from '../study/learn.ts'
 import { DEFAULT_OPTIONS, deckFor, sideText, type StudyOptions } from '../study/options.ts'
 
@@ -23,7 +23,8 @@ export default function Learn() {
   const [sessionKey, setSessionKey] = useState(0)
   // Code mode state lives here so an options change keeps the code and the active side.
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
-  const doc = useRef('')
+  const docs = useCodeDocs(loaded.data)
+  const saveCode = useCodeSaver()
 
   useEffect(() => {
     void api.sets.open(setId).catch(() => {})
@@ -67,7 +68,7 @@ export default function Learn() {
           options={options}
           paused={optionsOpen}
           onOpenOptions={() => setOptionsOpen(true)}
-          code={{ focusSide, setFocusSide, doc }}
+          code={{ focusSide, setFocusSide, docs, saveCode }}
         />
       )}
       {optionsOpen && (
@@ -86,7 +87,12 @@ export default function Learn() {
   )
 }
 
-type CodeState = { focusSide: FocusSide; setFocusSide: (side: FocusSide) => void; doc: RefObject<string> }
+type CodeState = {
+  focusSide: FocusSide
+  setFocusSide: (side: FocusSide) => void
+  docs: Map<number, string>
+  saveCode: (cardId: number, code: string) => void
+}
 
 type SessionProps = {
   set: SetWithCards
@@ -180,10 +186,12 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
 
       {codeMode ? (
         <CodeStudyLayout
-          setId={set.id}
+          set={set}
+          card={s.phase === 'round' ? card : null}
           focusSide={code.focusSide}
           onFocusSide={code.setFocusSide}
-          doc={code.doc}
+          docs={code.docs}
+          onCodeChange={code.saveCode}
           panelKey={`${s.phase}-${s.groupIndex}-${s.index}-${card?.id}-${s.flipped}`}
           panel={
             s.phase === 'done' ? (

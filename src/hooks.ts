@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { api, type SetWithCards } from './api.ts'
 
 export type Async<T> = { data: T | null; error: string | null; loading: boolean; reload: () => void }
 
@@ -46,4 +47,42 @@ export function useDebounced<T>(value: T, ms: number): T {
     return () => clearTimeout(id)
   }, [value, ms])
   return debounced
+}
+
+// The editor text per card in code mode, keyed by card id. A new map, seeded
+// from the saved code, each time a set loads. The editor mutates it in place.
+export function useCodeDocs(set: SetWithCards | null): Map<number, string> {
+  return useMemo(() => {
+    const docs = new Map<number, string>()
+    if (set) for (const c of set.cards) if (c.code) docs.set(c.id, c.code)
+    return docs
+  }, [set])
+}
+
+const SAVE_DELAY_MS = 500
+
+// Debounced PATCH of cards.code, one timer per card, flushed on unmount.
+// A failed save is dropped; the next edit sends the text again.
+export function useCodeSaver(): (cardId: number, code: string) => void {
+  const pending = useRef(new Map<number, { timer: ReturnType<typeof setTimeout>; code: string }>())
+  useEffect(() => {
+    const map = pending.current
+    return () => {
+      for (const [cardId, p] of map) {
+        clearTimeout(p.timer)
+        void api.cards.update(cardId, { code: p.code }).catch(() => {})
+      }
+      map.clear()
+    }
+  }, [])
+  return useCallback((cardId: number, code: string) => {
+    const map = pending.current
+    const prev = map.get(cardId)
+    if (prev) clearTimeout(prev.timer)
+    const timer = setTimeout(() => {
+      map.delete(cardId)
+      void api.cards.update(cardId, { code }).catch(() => {})
+    }, SAVE_DELAY_MS)
+    map.set(cardId, { timer, code })
+  }, [])
 }
