@@ -7,6 +7,7 @@ Flashcards in the style of Quizlet, with a code mode that shows a card as a codi
 - Folders and sets, with search and sort. A set can be in one folder.
 - An editor for a set: cards with a term, a definition, and an image on each side; drag to reorder; swap all sides; Tab on the last card adds one.
 - A set page with the cards, a star on each, inline edit, and an order by the Flashcards stats.
+- Card text is markdown (GFM). A single line break stays a line break; indented code needs a fenced block. Fenced code blocks tagged `python` or `sql` are highlighted with the editor's parsers; other languages show as plain monospace. Raw HTML shows as text.
 - Flashcards: flip, sort with X and check (keys 1 and 2), undo, shuffle, rounds over the missed cards until none are missed. Each sort updates the card's stats.
 - Learn: the cards in groups of n. Passes over the missed cards follow at once; a debrief shows when a group is done or a card is carried (the one-card rule: a solo second chance, then carry to the next group).
 - Code mode: with it on, Flashcards and Learn show the card as a problem description next to a CodeMirror editor. The side used last gets the keys.
@@ -34,7 +35,7 @@ All data lives in `data/` at the repo root (git-ignored): `data/iterdeck.db` (SQ
 
 - `src/` is the client (React, Vite, TypeScript, Tailwind, React Router).
   - `pages/` has one file per route: Home, Folders, Sets, Folder, Set, Editor, Flashcards, Learn.
-  - `components/` has the shared UI: layout, dialogs, the editor panels (`CardPanel`, `CodeSettings`), the study pieces (`StudyShell`, `StudyCard`, `SortControls`, `ProgressBar`, `OptionsPanel`), and code mode (`CodeStudyLayout`, `ProblemPanel`, `CodeEditor`, `OutputPanel`).
+  - `components/` has the shared UI: layout, dialogs, the editor panels (`CardPanel`, `CodeSettings`), the study pieces (`StudyShell`, `StudyCard`, `SortControls`, `ProgressBar`, `OptionsPanel`), code mode (`CodeStudyLayout`, `ProblemPanel`, `CodeEditor`, `OutputPanel`), and `CardText` (markdown rendering, styled in `index.css`).
   - `study/` has the logic without React: `flashcards.ts` (rounds), `learn.ts` (groups and the one-card rule), `stats.ts`, `options.ts`, `languages.ts`. Unit tested.
   - `run/` runs code in the browser: `runner.ts` (the interface), `sql.ts` (PGlite), `python.ts` with `python.worker.ts` and `pyodideSession.ts` (Pyodide), `compare.ts` (row comparison for Check), `cases.ts` (test case splitting). Unit tested in Node.
   - `editor/cards.ts` has the editor's card helpers.
