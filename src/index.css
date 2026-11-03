@@ -22,13 +22,18 @@
   .card-text h2 {
     font-size: 1.125em;
   }
-  /* inline-block, so a list sits in the middle of the centered flashcard and
-     at the left elsewhere; the items stay left-aligned. */
+  /* display: table, so a list shrinks to its content and still takes its own
+     line; the items stay left-aligned. The centered flashcard adds
+     card-text-centered so the list sits in the middle. */
   .card-text ul,
   .card-text ol {
-    display: inline-block;
+    display: table;
     padding-left: 1.5em;
     text-align: left;
+  }
+  .card-text-centered ul,
+  .card-text-centered ol {
+    margin-inline: auto;
   }
   .card-text ul {
     list-style: disc;

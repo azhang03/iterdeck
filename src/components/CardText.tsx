@@ -47,12 +47,10 @@ const components: Components = {
     if (!parser || typeof children !== 'string') return <code className={className}>{children}</code>
     return <code className={className}>{highlight(children, parser)}</code>
   },
-  a({ href, children }) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </a>
-    )
+  // In-page links (GFM footnotes) stay in the tab; the rest open a new one.
+  a({ node: _node, ...props }) {
+    const inPage = props.href?.startsWith('#')
+    return <a {...props} target={inPage ? undefined : '_blank'} rel={inPage ? undefined : 'noreferrer'} onClick={(e) => e.stopPropagation()} />
   },
 }
 
