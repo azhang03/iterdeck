@@ -24,16 +24,24 @@ async function load(db: PGlite, name: string, columns: SetFile['columns'], blob:
   await db.query(`COPY ${quote(name)} FROM '/dev/blob' WITH (FORMAT csv, HEADER true)`, [], { blob })
 }
 
+async function txid(db: PGlite): Promise<string> {
+  const r = await db.query<{ id: string }>('SELECT txid_current()::text AS id')
+  return r.rows[0].id
+}
+
 // PostgreSQL in the browser. Each set file becomes a table. Every run happens
 // inside a transaction that is rolled back, so the data is the same each time.
 export class SqlRunner implements Runner {
   private db: PGlite | null = null
+  private set: SetWithCards | null = null
   private disposed = false
   private readonly fetchFile: (file: string) => Promise<Blob>
   // For the Tables section in the study layout.
   tables: Table[] = []
   // Tables whose CSV did not fit the inferred types and were loaded with text columns.
   textFallback: string[] = []
+  // Tables that could not be loaded at all, with the error.
+  failed: { name: string; message: string }[] = []
 
   constructor(options: Options = {}) {
     this.fetchFile = options.fetchFile ?? fetchFile
@@ -41,21 +49,34 @@ export class SqlRunner implements Runner {
 
   async prepare(set: SetWithCards): Promise<void> {
     if (this.db) return
+    this.set = set
     const db = await PGlite.create('memory://')
     const tables: Table[] = []
     const textFallback: string[] = []
-    for (const file of set.files) {
-      const blob = await this.fetchFile(file.file)
-      let columns = file.columns
-      try {
-        await load(db, file.table_name, columns, blob)
-      } catch {
-        await db.exec(`DROP TABLE IF EXISTS ${quote(file.table_name)}`)
-        columns = file.columns.map((c) => ({ name: c.name, type: 'text' as const }))
-        await load(db, file.table_name, columns, blob)
-        textFallback.push(file.table_name)
+    const failed: { name: string; message: string }[] = []
+    try {
+      for (const file of set.files) {
+        const name = file.table_name
+        let columns = file.columns
+        try {
+          const blob = await this.fetchFile(file.file)
+          try {
+            await load(db, name, columns, blob)
+          } catch {
+            await db.exec(`DROP TABLE IF EXISTS ${quote(name)}`)
+            columns = file.columns.map((c) => ({ name: c.name, type: 'text' as const }))
+            await load(db, name, columns, blob)
+            textFallback.push(name)
+          }
+          tables.push({ name, columns })
+        } catch (err) {
+          await db.exec(`DROP TABLE IF EXISTS ${quote(name)}`).catch(() => {})
+          failed.push({ name, message: err instanceof Error ? err.message : String(err) })
+        }
       }
-      tables.push({ name: file.table_name, columns })
+    } catch (err) {
+      await db.close().catch(() => {})
+      throw err
     }
     // dispose ran while the data loaded: the layout unmounted.
     if (this.disposed) {
@@ -65,6 +86,7 @@ export class SqlRunner implements Runner {
     this.db = db
     this.tables = tables
     this.textFallback = textFallback
+    this.failed = failed
   }
 
   async run(code: string): Promise<RunResult> {
@@ -72,21 +94,44 @@ export class SqlRunner implements Runner {
     if (!db) return { ok: false, error: { message: 'PostgreSQL is not loaded' }, stdout: '', ms: 0 }
     const start = performance.now()
     await db.exec('BEGIN')
+    const txBefore = await txid(db)
+    let result: RunResult
     try {
       const results = await db.exec(code, { rowMode: 'array' })
       const ms = Math.round(performance.now() - start)
       const withRows = results.filter((r) => r.fields.length > 0)
       const last = withRows[withRows.length - 1] as Results<unknown[]> | undefined
       if (last) {
-        return { ok: true, stdout: '', rows: { columns: last.fields.map((f) => f.name), values: last.rows }, note: null, ms }
+        result = { ok: true, stdout: '', rows: { columns: last.fields.map((f) => f.name), values: last.rows }, note: null, ms }
+      } else {
+        const tail = results[results.length - 1]
+        result = { ok: true, stdout: '', rows: null, note: `OK, ${tail?.affectedRows ?? 0} rows affected`, ms }
       }
-      const tail = results[results.length - 1]
-      return { ok: true, stdout: '', rows: null, note: `OK, ${tail?.affectedRows ?? 0} rows affected`, ms }
     } catch (err) {
-      return { ok: false, error: sqlError(err, code), stdout: '', ms: Math.round(performance.now() - start) }
-    } finally {
-      await db.exec('ROLLBACK').catch(() => {})
+      result = { ok: false, error: sqlError(err, code), stdout: '', ms: Math.round(performance.now() - start) }
     }
+    // A COMMIT, END, ROLLBACK, or ABORT in the code ends the transaction early, and
+    // what follows is permanent. txid_current changes in that case (an aborted
+    // transaction cannot answer; that counts as unchanged). The data is then rebuilt.
+    const txAfter = await txid(db).catch(() => txBefore)
+    await db.exec('ROLLBACK').catch(() => {})
+    if (txAfter !== txBefore) {
+      await this.reload()
+      return {
+        ok: false,
+        error: { message: 'COMMIT, END, ROLLBACK, and ABORT are not allowed. The tables were reset.' },
+        stdout: '',
+        ms: result.ms,
+      }
+    }
+    return result
+  }
+
+  private async reload(): Promise<void> {
+    const set = this.set
+    this.db?.close().catch(() => {})
+    this.db = null
+    if (set) await this.prepare(set)
   }
 
   // The back of the card holds the reference query. Both run; the rows are compared.

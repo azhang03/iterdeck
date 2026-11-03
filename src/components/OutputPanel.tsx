@@ -103,8 +103,8 @@ function RowTable({ rows }: { rows: Rows }) {
 
 function cellText(v: unknown): string {
   if (v === null || v === undefined) return 'NULL'
-  if (v instanceof Date) return v.toISOString()
-  if (typeof v === 'object') return JSON.stringify(v)
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? String(v) : v.toISOString()
+  if (typeof v === 'object') return JSON.stringify(v, (_, x: unknown) => (typeof x === 'bigint' ? String(x) : x))
   return String(v)
 }
 

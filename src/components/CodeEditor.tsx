@@ -6,7 +6,7 @@ import { setDiagnostics } from '@codemirror/lint'
 import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RunError } from '../run/runner.ts'
 import type { Language } from '../study/languages.ts'
 
@@ -41,11 +41,11 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, cl
     handlers.current = { onChange, onRun }
   })
 
-  useEffect(() => {
-    if (!host.current) return
-    const v = new EditorView({
-      state: EditorState.create({
-        doc: activeCard.current === null ? '' : (docs.get(activeCard.current) ?? ''),
+  // One state per card: a fresh state keeps card A's undo history out of card B.
+  const makeState = useCallback(
+    (doc: string) =>
+      EditorState.create({
+        doc,
         extensions: [
           basicSetup,
           Prec.highest(keymap.of([{ key: 'Mod-Enter', run: () => (handlers.current.onRun(), true) }])),
@@ -61,6 +61,13 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, cl
           EditorView.theme({ '&': { height: '100%' } }),
         ],
       }),
+    [docs, langCompartment],
+  )
+
+  useEffect(() => {
+    if (!host.current) return
+    const v = new EditorView({
+      state: makeState(activeCard.current === null ? '' : (docs.get(activeCard.current) ?? '')),
       parent: host.current,
     })
     view.current = v
@@ -68,18 +75,15 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, cl
       v.destroy()
       view.current = null
     }
-  }, [docs, langCompartment])
+  }, [docs, makeState])
 
   useEffect(() => {
     if (!view.current || cardId === null || cardId === activeCard.current) return
     activeCard.current = cardId
     switching.current = true
-    view.current.dispatch({
-      changes: { from: 0, to: view.current.state.doc.length, insert: docs.get(cardId) ?? '' },
-      selection: { anchor: 0 },
-    })
+    view.current.setState(makeState(docs.get(cardId) ?? ''))
     switching.current = false
-  }, [cardId, docs])
+  }, [cardId, docs, makeState])
 
   useEffect(() => {
     if (!view.current || viewLanguage.current === language) return

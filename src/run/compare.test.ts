@@ -14,6 +14,11 @@ describe('cell', () => {
     expect(cell(new Date('2024-01-02T00:00:00Z'))).toBe('2024-01-02T00:00:00.000Z')
     expect(cell('abc')).toBe('abc')
     expect(cell('1e3')).toBe('1e3')
+    expect(cell({ a: 1 })).not.toBe(cell({ a: 2 }))
+    expect(cell(['a,b'])).not.toBe(cell(['a', 'b']))
+    expect(cell([null])).not.toBe(cell(['']))
+    expect(cell({ n: 10n })).toBe('{"n":"10"}')
+    expect(() => cell(new Date('infinity'))).not.toThrow()
   })
 })
 

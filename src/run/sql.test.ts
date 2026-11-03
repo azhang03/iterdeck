@@ -104,6 +104,13 @@ describe('SqlRunner', () => {
     expect(r.ok && r.rows?.values).toEqual([[4]])
   })
 
+  it('resets the tables when the code commits, and reports it', async () => {
+    const r = await runner.run('COMMIT; DELETE FROM employees')
+    expect(!r.ok && r.error.message).toContain('not allowed')
+    const after = await runner.run('SELECT COUNT(*) FROM employees')
+    expect(after.ok && after.rows?.values).toEqual([[4]])
+  })
+
   it('reports a syntax error with its line', async () => {
     const r = await runner.run('SELECT 1;\nSELEC 2')
     expect(r.ok).toBe(false)
@@ -156,6 +163,29 @@ describe('SqlRunner text fallback', () => {
     expect(runner.tables[0].columns.map((c) => c.type)).toEqual(['text', 'text'])
     const r = await runner.run('SELECT day FROM events ORDER BY id')
     expect(r.ok && r.rows?.values).toEqual([['2024-01-02'], ['not a date']])
+    runner.dispose()
+  })
+
+  it('skips a table whose file cannot be read and loads the rest', async () => {
+    const runner = new SqlRunner({
+      fetchFile: async (file) => {
+        if (file === 'missing.csv') throw new Error('404')
+        return new Blob([FILES[file]])
+      },
+    })
+    await runner.prepare(
+      makeSet([
+        setFile(4, 'missing', [{ name: 'id', type: 'bigint' }]),
+        setFile(5, 'departments', [
+          { name: 'id', type: 'bigint' },
+          { name: 'name', type: 'text' },
+        ]),
+      ]),
+    )
+    expect(runner.failed).toEqual([{ name: 'missing', message: '404' }])
+    expect(runner.tables.map((t) => t.name)).toEqual(['departments'])
+    const r = await runner.run('SELECT COUNT(*) FROM departments')
+    expect(r.ok && r.rows?.values).toEqual([[2]])
     runner.dispose()
   })
 })

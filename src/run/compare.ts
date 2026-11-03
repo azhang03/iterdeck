@@ -4,14 +4,17 @@ const NULL = '\u2205'
 const SEP = '\u0001'
 const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/
 
+const bigintAsString = (_: string, x: unknown) => (typeof x === 'bigint' ? String(x) : x)
+
 // One text form per cell, so 1, "1", and 1.0 compare equal and NULL is distinct
-// from the empty string.
+// from the empty string. json, jsonb, and arrays compare by their JSON text.
 export function cell(v: unknown): string {
   if (v === null || v === undefined) return NULL
   if (typeof v === 'boolean') return v ? 't' : 'f'
   if (typeof v === 'number' || typeof v === 'bigint') return String(v)
-  if (v instanceof Date) return v.toISOString()
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? String(v) : v.toISOString()
   if (typeof v === 'string' && PLAIN_NUMBER.test(v)) return String(Number(v))
+  if (typeof v === 'object') return JSON.stringify(v, bigintAsString)
   return String(v)
 }
 

@@ -21,7 +21,7 @@ type Props = {
   footer?: ReactNode // sort buttons, in a bar at the bottom of the panel
 }
 
-type Loaded = { tables: Table[]; textFallback: string[] }
+type Loaded = { tables: Table[]; textFallback: string[]; failed: { name: string; message: string }[] }
 
 const toolButton = 'rounded px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50'
 
@@ -65,7 +65,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
           if (!live || !r) return
           runner.current = r
           setStatus('ready')
-          setLoaded(r instanceof SqlRunner ? { tables: r.tables, textFallback: r.textFallback } : { tables: [], textFallback: [] })
+          setLoaded(r instanceof SqlRunner ? { tables: r.tables, textFallback: r.textFallback, failed: r.failed } : { tables: [], textFallback: [], failed: [] })
         },
         (err: unknown) => {
           if (!live) return
@@ -86,14 +86,22 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
     return cardId === null ? '' : (docs.get(cardId) ?? '')
   }
 
+  // The card the editor showed when a run started; a run that ends after a card
+  // switch must not mark the new card's text.
+  const activeId = useRef<number | null>(null)
+  useEffect(() => {
+    activeId.current = activeCard?.id ?? null
+  })
+
   async function run() {
     const r = runner.current
     if (!r || !ready) return
+    const cardId = activeCard?.id ?? null
     setBusy(true)
     try {
-      const result = await r.run(codeOf(activeCard?.id ?? null))
+      const result = await r.run(codeOf(cardId))
       setOutput(result)
-      setDiagnostics(result.ok ? null : result.error)
+      if (activeId.current === cardId) setDiagnostics(result.ok ? null : result.error)
       setTab('output')
     } finally {
       setBusy(false)
@@ -151,7 +159,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
         className={outline('card')}
       >
         <div key={panelKey} className="min-h-0 flex-1 overflow-y-auto p-6">
-          {set.language === 'postgresql' && loaded && <TablesSection tables={loaded.tables} textFallback={loaded.textFallback} />}
+          {set.language === 'postgresql' && loaded && <TablesSection {...loaded} />}
           {panel}
         </div>
         {footer && <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">{footer}</div>}
@@ -208,11 +216,11 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   )
 }
 
-function TablesSection({ tables, textFallback }: Loaded) {
+function TablesSection({ tables, textFallback, failed }: Loaded) {
   return (
     <details className="mb-4 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
       <summary className="cursor-pointer font-medium">Tables</summary>
-      {tables.length === 0 && <p className="mt-2 text-gray-500">No tables. Upload CSV files in the editor.</p>}
+      {tables.length === 0 && failed.length === 0 && <p className="mt-2 text-gray-500">No tables. Upload CSV files in the editor.</p>}
       <ul className="mt-2 space-y-2">
         {tables.map((t) => (
           <li key={t.name}>
@@ -221,6 +229,12 @@ function TablesSection({ tables, textFallback }: Loaded) {
             {textFallback.includes(t.name) && (
               <span className="ml-2 text-xs text-amber-700">loaded as text: a value did not match the inferred types</span>
             )}
+          </li>
+        ))}
+        {failed.map((f) => (
+          <li key={f.name}>
+            <span className="font-mono font-medium">{f.name}</span>
+            <span className="ml-2 text-xs text-red-600">not loaded: {f.message}</span>
           </li>
         ))}
       </ul>
