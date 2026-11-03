@@ -184,7 +184,7 @@ function Session({ set, deck, options, paused, onOpenOptions, code }: SessionPro
           focusSide={code.focusSide}
           onFocusSide={code.setFocusSide}
           doc={code.doc}
-          panelKey={`${s.phase}-${s.groupIndex}-${s.index}-${s.flipped}`}
+          panelKey={`${s.phase}-${s.groupIndex}-${s.index}-${card?.id}-${s.flipped}`}
           panel={
             s.phase === 'done' ? (
               finished
