@@ -1,1 +1,135 @@
 @import "tailwindcss";
+
+/* Card text rendered from markdown (src/components/CardText.tsx). Tailwind's
+   reset removes the browser defaults, so headings, lists, and code get theirs
+   back here. Sizes are relative so the same rules fit the big flashcard and the
+   small card rows. */
+@layer components {
+  .card-text > :not(:last-child) {
+    margin-bottom: 0.75em;
+  }
+  .card-text h1,
+  .card-text h2,
+  .card-text h3,
+  .card-text h4,
+  .card-text h5,
+  .card-text h6 {
+    font-weight: 600;
+  }
+  .card-text h1 {
+    font-size: 1.25em;
+  }
+  .card-text h2 {
+    font-size: 1.125em;
+  }
+  /* inline-block, so a list sits in the middle of the centered flashcard and
+     at the left elsewhere; the items stay left-aligned. */
+  .card-text ul,
+  .card-text ol {
+    display: inline-block;
+    padding-left: 1.5em;
+    text-align: left;
+  }
+  .card-text ul {
+    list-style: disc;
+  }
+  .card-text ol {
+    list-style: decimal;
+  }
+  .card-text li > ul,
+  .card-text li > ol {
+    margin-top: 0.25em;
+  }
+  .card-text blockquote {
+    border-left: 3px solid var(--color-gray-300);
+    padding-left: 0.75em;
+    color: var(--color-gray-600);
+  }
+  .card-text a {
+    color: var(--color-blue-600);
+    text-decoration: underline;
+  }
+  .card-text strong {
+    font-weight: 600;
+  }
+  .card-text em {
+    font-style: italic;
+  }
+  .card-text code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+  .card-text :not(pre) > code {
+    background: var(--color-gray-100);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.3em;
+  }
+  .card-text pre {
+    background: var(--color-gray-50);
+    border: 1px solid var(--color-gray-200);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    text-align: left;
+    white-space: pre;
+    font-size: 0.8em;
+    line-height: 1.5;
+  }
+  .card-text pre code {
+    font-size: 1em;
+  }
+  .card-text table {
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .card-text th,
+  .card-text td {
+    border: 1px solid var(--color-gray-200);
+    padding: 0.25em 0.5em;
+  }
+  .card-text th {
+    font-weight: 600;
+    background: var(--color-gray-50);
+  }
+  .card-text hr {
+    border-top: 1px solid var(--color-gray-200);
+  }
+
+  /* Token classes from @lezer/highlight's classHighlighter. The colors match
+     CodeMirror's default highlight style, so a code block looks like the editor. */
+  .tok-keyword {
+    color: #708;
+  }
+  .tok-string,
+  .tok-string2 {
+    color: #a11;
+  }
+  .tok-comment {
+    color: #940;
+    font-style: italic;
+  }
+  .tok-number,
+  .tok-bool,
+  .tok-atom,
+  .tok-literal {
+    color: #164;
+  }
+  .tok-typeName,
+  .tok-className,
+  .tok-namespace {
+    color: #085;
+  }
+  .tok-variableName.tok-definition,
+  .tok-propertyName.tok-definition {
+    color: #00f;
+  }
+  .tok-propertyName {
+    color: #05a;
+  }
+  .tok-meta {
+    color: #555;
+  }
+  .tok-invalid {
+    color: #f00;
+  }
+}

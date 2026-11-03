@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, type Card } from '../api.ts'
 import { percentColor } from '../study/stats.ts'
+import CardText from './CardText.tsx'
 
 type Props = { card: Card; onChange: (card: Card) => void; stat?: { percent: number | null } }
 
@@ -108,7 +109,7 @@ function Side({ text, image, editing, value, onValue, label }: SideProps) {
       {editing ? (
         <textarea value={value} onChange={(e) => onValue(e.target.value)} rows={3} aria-label={label} className={area} />
       ) : (
-        <p className="whitespace-pre-wrap text-sm">{text || <span className="text-gray-400">(empty)</span>}</p>
+        <CardText text={text} className="min-w-0 flex-1 text-sm" />
       )}
     </div>
   )
