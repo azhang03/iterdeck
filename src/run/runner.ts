@@ -1,4 +1,5 @@
 import type { Card, Language, SetWithCards } from '../api.ts'
+import { PythonRunner } from './python.ts'
 import { SqlRunner } from './sql.ts'
 
 export type RunError = { message: string; line?: number; column?: number }
@@ -22,6 +23,5 @@ export interface Runner {
 }
 
 export function createRunner(language: Language): Runner {
-  if (language === 'postgresql') return new SqlRunner()
-  throw new Error('python runner comes in F10')
+  return language === 'postgresql' ? new SqlRunner() : new PythonRunner()
 }
