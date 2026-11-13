@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
-import { classHighlighter, highlightCode } from '@lezer/highlight'
+import { highlightCode } from '@lezer/highlight'
 import { pythonLanguage } from '@codemirror/lang-python'
 import { PostgreSQL } from '@codemirror/lang-sql'
+import { codeHighlighter } from '../editor/highlight.ts'
 
 type Parser = typeof pythonLanguage.parser
 
@@ -23,7 +24,7 @@ export default function CardText({ text, className }: Props) {
           {text}
         </ReactMarkdown>
       ) : (
-        <span className="text-gray-400">(empty)</span>
+        <span className="text-muted">(empty)</span>
       )}
     </div>
   )
@@ -59,7 +60,7 @@ function highlight(code: string, parser: Parser): ReactNode[] {
   highlightCode(
     code,
     parser.parse(code),
-    classHighlighter,
+    codeHighlighter,
     (part, classes) => {
       out.push(
         classes ? (

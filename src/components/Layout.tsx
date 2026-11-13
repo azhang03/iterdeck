@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import ThemeToggle from './ThemeToggle.tsx'
 
 const links = [
   { to: '/', label: 'Home' },
@@ -8,8 +9,8 @@ const links = [
 
 export default function Layout() {
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900">
-      <nav className="w-48 shrink-0 border-r border-gray-200 bg-white p-4">
+    <div className="flex min-h-screen bg-page text-ink">
+      <nav className="sticky top-0 flex h-screen w-48 shrink-0 flex-col border-r border-line bg-surface p-4">
         <NavLink to="/" className="mb-6 block text-lg font-semibold">
           Iterdeck
         </NavLink>
@@ -20,7 +21,7 @@ export default function Layout() {
                 to={l.to}
                 end={l.to === '/'}
                 className={({ isActive }) =>
-                  `block rounded px-3 py-2 text-sm ${isActive ? 'bg-blue-50 font-medium text-blue-700' : 'hover:bg-gray-100'}`
+                  `block rounded px-3 py-2 text-sm ${isActive ? 'bg-accent/10 font-medium text-accent' : 'hover:bg-hover'}`
                 }
               >
                 {l.label}
@@ -28,6 +29,7 @@ export default function Layout() {
             </li>
           ))}
         </ul>
+        <ThemeToggle className="mt-auto self-start" />
       </nav>
       <main className="flex-1 p-8">
         <Outlet />

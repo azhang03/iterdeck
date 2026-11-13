@@ -1,5 +1,90 @@
 @import "tailwindcss";
 
+/* The colours of the app. Soft gray is the light scheme; Graphite, further down, is
+   the dark one. Components use these names (bg-surface, text-muted, border-line),
+   never a fixed colour, so both schemes follow from this file.
+   static: the rules below read some of these with var(), so all are kept. */
+@theme static {
+  --color-page: #e7e9ee;
+  --color-surface: #f6f7f9;
+  --color-surface-back: #eef0f8; /* the answer side of a study card */
+  --color-line: #d5d9e1;
+  --color-ink: #1f232b;
+  --color-muted: #5f6673;
+  --color-accent: #4753c9;
+  --color-accent-strong: #3a45b0;
+  --color-on-accent: #ffffff;
+  --color-ok: #15803d; /* checked, passed */
+  --color-miss: #b45309; /* missed */
+  --color-bad: #c62828; /* errors, delete */
+  --color-track: #d3d7df;
+  --color-hover: #dcdfe5;
+  --color-code: #eceef2; /* code blocks in card text */
+  --color-editor: #f9fafb;
+  --color-star: #b7791f;
+
+  --radius-card: 0.875rem;
+  /* Tailwind copies a shadow value into the utility, so the value that each
+     scheme sets is the plain variable below. */
+  --shadow-card: var(--card-shadow);
+}
+
+:root {
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 10px 26px -14px rgb(16 24 40 / 0.22);
+  /* Code colours, for the editor and for code blocks in card text. */
+  --tok-plain: var(--color-ink);
+  --tok-control: #7c3aed;
+  --tok-keyword: #7c3aed;
+  --tok-function: #1d4ed8;
+  --tok-type: #1d4ed8;
+  --tok-number: #b45309;
+  --tok-string: #0f766e;
+  --tok-comment: var(--color-muted);
+  --tok-comment-style: italic;
+  /* The lightness of the stats percentage on a card row (red to green). */
+  --stat-lightness: 36%;
+}
+
+/* Graphite. index.html sets data-theme before the first paint. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-page: #1b1c1f;
+  --color-surface: #27282d;
+  --color-surface-back: #2c2d33;
+  --color-line: #3a3c43;
+  --color-ink: #e9eaed;
+  --color-muted: #a0a3ab;
+  --color-accent: #9aa7ff;
+  --color-accent-strong: #b3bdff;
+  --color-on-accent: #131417;
+  --color-ok: #62d08e;
+  --color-miss: #efb84d;
+  --color-bad: #f2817b;
+  --color-track: #383a41;
+  --color-hover: #303238;
+  --color-code: #1f2023;
+  --color-editor: #212226;
+  --color-star: #f2c94c;
+  --card-shadow: 0 1px 0 rgb(255 255 255 / 0.03), 0 14px 34px -18px rgb(0 0 0 / 0.8);
+
+  /* VS Code Dark+. */
+  --tok-plain: #d4d4d4;
+  --tok-control: #c586c0;
+  --tok-keyword: #569cd6;
+  --tok-function: #dcdcaa;
+  --tok-type: #4ec9b0;
+  --tok-number: #b5cea8;
+  --tok-string: #ce9178;
+  --tok-comment: #6a9955;
+  --tok-comment-style: normal;
+  --stat-lightness: 62%;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+}
+
 /* Card text rendered from markdown (src/components/CardText.tsx). Tailwind's
    reset removes the browser defaults, so headings, lists, and code get theirs
    back here. Sizes are relative so the same rules fit the big flashcard and the
@@ -47,12 +132,12 @@
     margin-top: 0.25em;
   }
   .card-text blockquote {
-    border-left: 3px solid var(--color-gray-300);
+    border-left: 3px solid var(--color-line);
     padding-left: 0.75em;
-    color: var(--color-gray-600);
+    color: var(--color-muted);
   }
   .card-text a {
-    color: var(--color-blue-600);
+    color: var(--color-accent);
     text-decoration: underline;
   }
   .card-text strong {
@@ -66,13 +151,13 @@
     font-size: 0.875em;
   }
   .card-text :not(pre) > code {
-    background: var(--color-gray-100);
+    background: var(--color-code);
     border-radius: 0.25rem;
     padding: 0.1em 0.3em;
   }
   .card-text pre {
-    background: var(--color-gray-50);
-    border: 1px solid var(--color-gray-200);
+    background: var(--color-code);
+    border: 1px solid var(--color-line);
     border-radius: 0.5rem;
     padding: 0.75rem 1rem;
     overflow-x: auto;
@@ -90,52 +175,45 @@
   }
   .card-text th,
   .card-text td {
-    border: 1px solid var(--color-gray-200);
+    border: 1px solid var(--color-line);
     padding: 0.25em 0.5em;
   }
   .card-text th {
     font-weight: 600;
-    background: var(--color-gray-50);
+    background: var(--color-code);
   }
   .card-text hr {
-    border-top: 1px solid var(--color-gray-200);
+    border-top: 1px solid var(--color-line);
   }
 
-  /* Token classes from @lezer/highlight's classHighlighter. The colors match
-     CodeMirror's default highlight style, so a code block looks like the editor. */
-  .tok-keyword {
-    color: #708;
+  /* Token classes from src/editor/highlight.ts, for the editor and for code
+     blocks in card text. The colours of each scheme are at the top of this file. */
+  .card-text pre code {
+    color: var(--tok-plain);
   }
-  .tok-string,
-  .tok-string2 {
-    color: #a11;
+  .tok-control {
+    color: var(--tok-control);
+  }
+  .tok-keyword {
+    color: var(--tok-keyword);
+  }
+  .tok-function {
+    color: var(--tok-function);
+  }
+  .tok-type {
+    color: var(--tok-type);
+  }
+  .tok-number {
+    color: var(--tok-number);
+  }
+  .tok-string {
+    color: var(--tok-string);
   }
   .tok-comment {
-    color: #940;
-    font-style: italic;
-  }
-  .tok-number,
-  .tok-bool,
-  .tok-atom,
-  .tok-literal {
-    color: #164;
-  }
-  .tok-typeName,
-  .tok-className,
-  .tok-namespace {
-    color: #085;
-  }
-  .tok-variableName.tok-definition,
-  .tok-propertyName.tok-definition {
-    color: #00f;
-  }
-  .tok-propertyName {
-    color: #05a;
-  }
-  .tok-meta {
-    color: #555;
+    color: var(--tok-comment);
+    font-style: var(--tok-comment-style);
   }
   .tok-invalid {
-    color: #f00;
+    color: var(--color-bad);
   }
 }

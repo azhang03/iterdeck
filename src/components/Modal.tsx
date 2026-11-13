@@ -28,7 +28,7 @@ export default function Modal({ onClose, title, children, closable = true }: Pro
       onClick={(e) => {
         if (closable && pressedBackdrop.current && e.target === ref.current) onClose()
       }}
-      className="w-full max-w-lg rounded-lg p-0 shadow-xl backdrop:bg-black/30 open:fixed open:top-1/2 open:left-1/2 open:-translate-x-1/2 open:-translate-y-1/2"
+      className="w-full max-w-lg rounded-lg bg-surface p-0 text-ink shadow-xl backdrop:bg-black/30 open:fixed open:top-1/2 open:left-1/2 open:-translate-x-1/2 open:-translate-y-1/2"
     >
       <div className="p-6">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>

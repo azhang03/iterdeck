@@ -37,7 +37,7 @@ export default function AddSetMenu({ folder, onClose, onAdded, onCreateNew }: Pr
   return (
     <Modal onClose={onClose} title={`Add a set to ${folder.name}`} closable={busyId === null}>
       <ListControls q={q} onQ={setQ} sort={sort} onSort={setSort} placeholder="Search sets" />
-      <div className="mb-4 max-h-72 overflow-y-auto rounded border border-gray-200">
+      <div className="mb-4 max-h-72 overflow-y-auto rounded border border-line">
         <div className="px-3">
           <Status error={sets.error} loading={sets.loading && !sets.data} />
         </div>
@@ -47,24 +47,24 @@ export default function AddSetMenu({ folder, onClose, onAdded, onCreateNew }: Pr
             type="button"
             onClick={() => void add(s)}
             disabled={busyId !== null}
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 disabled:opacity-50"
+            className="block w-full px-3 py-2 text-left text-sm hover:bg-hover disabled:opacity-50"
           >
             {s.title}
-            {s.folder_id !== null && <span className="ml-2 text-xs text-gray-500">(in another folder)</span>}
+            {s.folder_id !== null && <span className="ml-2 text-xs text-muted">(in another folder)</span>}
           </button>
         ))}
         {sets.data && candidates.length === 0 && (
-          <p className="px-3 py-2 text-sm text-gray-500">
+          <p className="px-3 py-2 text-sm text-muted">
             {query ? 'No sets match.' : sets.data.length === 0 ? 'No sets yet.' : 'Every set is already in this folder.'}
           </p>
         )}
       </div>
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-sm text-bad">{error}</p>}
       <div className="flex justify-between">
         <PrimaryButton onClick={onCreateNew} disabled={busyId !== null}>
           Create new set
         </PrimaryButton>
-        <button type="button" onClick={onClose} disabled={busyId !== null} className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50">
+        <button type="button" onClick={onClose} disabled={busyId !== null} className="rounded px-4 py-2 text-sm hover:bg-hover disabled:opacity-50">
           Close
         </button>
       </div>

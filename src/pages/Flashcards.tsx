@@ -32,7 +32,7 @@ export default function Flashcards() {
   const deck = deckFor(set.cards, options)
 
   const actions = (
-    <button type="button" onClick={() => setOptionsOpen(true)} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+    <button type="button" onClick={() => setOptionsOpen(true)} className="rounded px-3 py-1 text-sm hover:bg-hover">
       Options
     </button>
   )
@@ -50,7 +50,7 @@ export default function Flashcards() {
             ) : (
               <>
                 This set has no cards.{' '}
-                <Link to={`/sets/${set.id}/edit`} className="text-blue-700 hover:underline">
+                <Link to={`/sets/${set.id}/edit`} className="text-accent hover:underline">
                   Open the editor
                 </Link>
               </>
@@ -183,10 +183,10 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
 
   const actions = (
     <>
-      <button type="button" onClick={() => setS(fc.shuffle)} disabled={over} className="rounded px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50">
+      <button type="button" onClick={() => setS(fc.shuffle)} disabled={over} className="rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50">
         Shuffle
       </button>
-      <button type="button" onClick={onOpenOptions} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+      <button type="button" onClick={onOpenOptions} className="rounded px-3 py-1 text-sm hover:bg-hover">
         Options
       </button>
     </>
@@ -195,26 +195,26 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const sum = fc.summary(s)
 
   const summary = (
-    <div className={codeMode ? 'text-center' : 'rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm'}>
+    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card'}>
       <h2 className="mb-2 text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} done`}</h2>
-      <p className="mb-6 text-gray-600">
+      <p className="mb-6 text-muted">
         {sum.checked} checked, {sum.missed} missed, {sum.percent}% right.
       </p>
       {fc.done(s) ? (
         <div className="flex justify-center gap-3">
           <PrimaryButton onClick={onRestart}>Restart</PrimaryButton>
-          <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+          <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-hover">
             Back to the set
           </Link>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
           <PrimaryButton onClick={() => setS(fc.nextRound)}>Continue with the {sum.missed} missed</PrimaryButton>
-          <span className="text-xs text-gray-500">or press Space</span>
+          <span className="text-xs text-muted">or press Space</span>
         </div>
       )}
       <div className="mt-4">
-        <button type="button" onClick={undo} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+        <button type="button" onClick={undo} className="rounded px-3 py-1 text-sm hover:bg-hover">
           Undo last card
         </button>
       </div>
@@ -226,7 +226,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   return (
     <StudyShell set={set} mode="Flashcards" round={s.round} clocks={clocks} actions={actions} wide={codeMode}>
       <ProgressBar done={s.index} total={s.queue.length} />
-      {error && <p className="mb-4 text-sm text-red-600">Could not save a result: {error}</p>}
+      {error && <p className="mb-4 text-sm text-bad">Could not save a result: {error}</p>}
 
       {codeMode ? (
         <CodeStudyLayout

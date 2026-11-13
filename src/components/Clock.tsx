@@ -25,8 +25,8 @@ export default function Clock({ label, read, running = true }: Props) {
   }, [read, running, mountedAt])
 
   return (
-    <span role="timer" className="text-sm whitespace-nowrap text-gray-500">
-      {label} <span className="font-mono text-gray-900 tabular-nums">{text}</span>
+    <span role="timer" className="text-sm whitespace-nowrap text-muted">
+      {label} <span className="font-mono text-ink tabular-nums">{text}</span>
     </span>
   )
 }

@@ -12,7 +12,7 @@ export default function ProblemPanel({ card, front, flipped, onFlip }: Props) {
   const { text, image } = sideText(card, side)
   return (
     <button type="button" onClick={onFlip} aria-label={`Card, showing ${side}. Flip`} className="flex min-h-full w-full flex-col items-start text-left focus:outline-none">
-      <span className="mb-3 flex w-full items-center justify-between text-xs uppercase tracking-wide text-gray-400">
+      <span className="mb-3 flex w-full items-center justify-between text-xs uppercase tracking-wide text-muted">
         <span>{side}</span>
         <span>click to flip</span>
       </span>

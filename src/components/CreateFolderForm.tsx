@@ -33,14 +33,14 @@ export default function CreateFolderForm({ onCreated, onCancel }: Props) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Folder name"
           aria-label="Folder name"
-          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded border border-line bg-surface px-3 py-2 text-sm"
         />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-bad">{error}</p>}
       </div>
       <PrimaryButton type="submit" disabled={busy}>
         Create
       </PrimaryButton>
-      <button type="button" onClick={onCancel} disabled={busy} className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50">
+      <button type="button" onClick={onCancel} disabled={busy} className="rounded px-4 py-2 text-sm hover:bg-hover disabled:opacity-50">
         Cancel
       </button>
     </form>

@@ -51,7 +51,7 @@ export default function CreateSetDialog({ onClose, initialFolder = null }: Props
   }
 
   const option = (checked: boolean) =>
-    `block cursor-pointer rounded px-3 py-2 text-sm ${checked ? 'bg-blue-50 font-medium text-blue-700' : 'hover:bg-gray-100'}`
+    `block cursor-pointer rounded px-3 py-2 text-sm ${checked ? 'bg-accent/10 font-medium text-accent' : 'hover:bg-hover'}`
 
   return (
     <Modal onClose={onClose} title="Create set" closable={!busy}>
@@ -62,13 +62,13 @@ export default function CreateSetDialog({ onClose, initialFolder = null }: Props
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2"
+            className="w-full rounded border border-line px-3 py-2"
           />
         </label>
 
         <div className="mb-1 text-sm font-medium">Folder</div>
         <ListControls q={q} onQ={setQ} sort={sort} onSort={setSort} placeholder="Search folders" />
-        <div className="mb-2 max-h-56 overflow-y-auto rounded border border-gray-200">
+        <div className="mb-2 max-h-56 overflow-y-auto rounded border border-line">
           <label className={option(folder === null)}>
             <input type="radio" name="folder" className="mr-2" checked={folder === null} onChange={() => setFolder(null)} />
             No folder
@@ -88,13 +88,13 @@ export default function CreateSetDialog({ onClose, initialFolder = null }: Props
               {f.name}
             </label>
           ))}
-          {folders.data?.length === 0 && query && <p className="px-3 py-2 text-sm text-gray-500">No folders match.</p>}
+          {folders.data?.length === 0 && query && <p className="px-3 py-2 text-sm text-muted">No folders match.</p>}
         </div>
-        <p className="mb-4 text-sm text-gray-600">Selected: {folder ? folder.name : 'no folder'}</p>
+        <p className="mb-4 text-sm text-muted">Selected: {folder ? folder.name : 'no folder'}</p>
 
-        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+        {error && <p className="mb-3 text-sm text-bad">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={busy} className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={busy} className="rounded px-4 py-2 text-sm hover:bg-hover disabled:opacity-50">
             Cancel
           </button>
           <PrimaryButton type="submit" disabled={busy}>

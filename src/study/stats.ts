@@ -9,7 +9,7 @@ export function percent(card: Pick<Card, 'checked_count' | 'sorted_count'>): num
 
 // 0 is red, 100 is green: HSL hue from 0 to 120.
 export function percentColor(p: number): string {
-  return `hsl(${Math.round((p / 100) * 120)} 70% 40%)`
+  return `hsl(${Math.round((p / 100) * 120)} 70% var(--stat-lightness))`
 }
 
 export type CardOrder = 'original' | 'stats-asc' | 'stats-desc'
