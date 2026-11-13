@@ -43,12 +43,14 @@ type Props = {
   onChange: (cardId: number, text: string) => void
   onRun: () => void
   onTest: () => void
-  clearToken: number
+  // Replaces the whole text of the card on screen: Clear and Pull. A new `id` asks
+  // for it again. The change is one editor step, so one undo brings the old text back.
+  replacement: { id: number; text: string } | null
   // The last run's error; its line is marked. null clears the mark.
   diagnostics: RunError | null
 }
 
-export default function CodeEditor({ language, cardId, docs, onChange, onRun, onTest, clearToken, diagnostics }: Props) {
+export default function CodeEditor({ language, cardId, docs, onChange, onRun, onTest, replacement, diagnostics }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const [langCompartment] = useState(() => new Compartment())
@@ -118,10 +120,13 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, on
     view.current.dispatch({ effects: langCompartment.reconfigure(languageExtension(language)) })
   }, [language, langCompartment])
 
+  // A replacement is done one time. A view that is built again does not repeat the last one.
+  const replaced = useRef(replacement?.id ?? 0)
   useEffect(() => {
-    if (clearToken === 0 || !view.current) return
-    view.current.dispatch({ changes: { from: 0, to: view.current.state.doc.length, insert: '' } })
-  }, [clearToken])
+    if (!replacement || replacement.id === replaced.current || !view.current) return
+    replaced.current = replacement.id
+    view.current.dispatch({ changes: { from: 0, to: view.current.state.doc.length, insert: replacement.text } })
+  }, [replacement])
 
   useEffect(() => {
     const v = view.current
