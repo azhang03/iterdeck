@@ -10,9 +10,10 @@ import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
 import Scorecard, { type ScoreRow } from '../components/Scorecard.tsx'
 import SortControls from '../components/SortControls.tsx'
+import CardNote from '../components/CardNote.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type CardNotes, type ProgressSaver } from '../hooks.ts'
 import { formatClock } from '../study/clock.ts'
 import * as fc from '../study/flashcards.ts'
 import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
@@ -22,7 +23,7 @@ export default function Flashcards() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'flashcards', fc.resume)
-  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, notes, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
 
@@ -74,6 +75,7 @@ export default function Flashcards() {
           onOpenOptions={() => setOptionsOpen(true)}
           onRestart={restart}
           code={{ focusSide, setFocusSide, docs, saveCode: codeSaver.save }}
+          notes={notes}
         />
       )}
       {optionsOpen && (
@@ -109,12 +111,13 @@ type SessionProps = {
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
+  notes: CardNotes
   onOpenOptions: () => void
   onRestart: () => void
   code: CodeState
 }
 
-function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, notes, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? fc.start(deck))
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
@@ -189,6 +192,8 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
     if (paused || (codeMode && code.focusSide !== 'card')) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      // A key typed in a text field (the note of the card) is text, not a study key.
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
       if (e.key === ' ') {
         // Space on a focused button or link presses it; the card button flips through its own click.
         const t = e.target
@@ -264,6 +269,9 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
 
   const controls = <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
 
+  // The note of the card on screen. The key gives each card its own editor.
+  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text, keepalive) => notes.save(card.id, text, keepalive)} />
+
   return (
     <StudyShell set={set} mode="Flashcards" round={s.round} clocks={clocks} actions={actions} wide={codeMode}>
       <ProgressBar done={s.index} total={s.queue.length} />
@@ -279,7 +287,14 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
           onCodeChange={code.saveCode}
           panelKey={over ? `over-${s.round}` : `${card?.id}-${s.flipped}`}
           panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={flip} />}
-          footer={over ? undefined : controls}
+          footer={
+            over ? undefined : (
+              <>
+                <div className="mb-3">{note}</div>
+                {controls}
+              </>
+            )
+          }
           panelRef={motionTarget}
           onTested={(cardId, tally) => setTallies((t) => ({ ...t, [cardId]: tally }))}
         />
@@ -289,6 +304,7 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
         card && (
           <>
             <StudyCard ref={motionTarget} card={card} front={options.front} flipped={s.flipped} onFlip={flip} />
+            <div className="mt-4">{note}</div>
             {controls}
           </>
         )

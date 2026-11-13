@@ -37,6 +37,10 @@ export function cardsRouter(db: Db) {
       fields.push('code = ?')
       params.push(text(body.code, 'code', 100000))
     }
+    if (body.note !== undefined) {
+      fields.push('note = ?')
+      params.push(text(body.note, 'note', 2000))
+    }
     if (fields.length === 0) throw new BadRequest('nothing to update')
     params.push(cardId)
     db.prepare(`UPDATE cards SET ${fields.join(', ')} WHERE id = ?`).run(...params)

@@ -242,6 +242,26 @@ describe('card replace', () => {
     expect(fetched.cards[0].code).toBe('x = 1')
   })
 
+  it('saves a note on a card and keeps it through a card replace and a code clear', async () => {
+    const s = await makeSet('s')
+    const card = (await putCards(s.id, [{ term: 'a', definition: '' }])).cards[0]
+    expect(card.note).toBe('')
+    const patched = await call<Card>('PATCH', `/api/cards/${card.id}`, { note: 'Do not forget self.' })
+    expect(patched.data.note).toBe('Do not forget self.')
+    const replaced = await putCards(s.id, [{ id: card.id, term: 'a2', definition: '' }])
+    expect(replaced.cards[0]).toMatchObject({ term: 'a2', note: 'Do not forget self.' })
+    expect((await call('DELETE', `/api/sets/${s.id}/code`)).status).toBe(204)
+    expect((await call<SetWithCards>('GET', `/api/sets/${s.id}`)).data.cards[0].note).toBe('Do not forget self.')
+    expect((await call<Card>('PATCH', `/api/cards/${card.id}`, { note: '' })).data.note).toBe('')
+  })
+
+  it('rejects a note that is too long or not a string', async () => {
+    const s = await makeSet('s')
+    const card = (await putCards(s.id, [{ term: 'a', definition: '' }])).cards[0]
+    expect((await call('PATCH', `/api/cards/${card.id}`, { note: 'x'.repeat(2001) })).status).toBe(400)
+    expect((await call('PATCH', `/api/cards/${card.id}`, { note: 5 })).status).toBe(400)
+  })
+
   it('rejects a non-boolean ordered', async () => {
     const s = await makeSet('s')
     expect((await call('PUT', `/api/sets/${s.id}/cards`, [{ term: 'a', definition: '', ordered: 'yes' }])).status).toBe(400)

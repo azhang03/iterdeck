@@ -77,7 +77,7 @@ export const api = {
   cards: {
     update: (
       id: number,
-      patch: { term?: string; definition?: string; starred?: boolean; tests?: string; ordered?: boolean; code?: string },
+      patch: { term?: string; definition?: string; starred?: boolean; tests?: string; ordered?: boolean; code?: string; note?: string },
       opts: RequestOptions = {},
     ) => request<Card>('PATCH', `/api/cards/${id}`, patch, opts),
     sort: (id: number, checked: boolean, undo = false) => request<Card>('POST', `/api/cards/${id}/sort`, { checked, undo }),

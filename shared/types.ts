@@ -38,6 +38,8 @@ export type Card = {
   tests: string
   ordered: 0 | 1
   code: string
+  // The user's note to self about this card, shown in the study modes.
+  note: string
   created_at: string
 }
 
