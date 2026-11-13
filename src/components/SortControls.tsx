@@ -9,7 +9,7 @@ export default function SortControls({ onMiss, onCheck, onUndo, canUndo }: Props
           type="button"
           onClick={onMiss}
           aria-label="Mark as missed (1)"
-          className="h-14 w-14 rounded-full border-2 border-red-400 text-2xl text-red-600 hover:bg-red-50"
+          className="h-14 w-14 rounded-full border-2 border-miss bg-surface text-2xl text-miss hover:bg-miss/10"
         >
           {'\u2715'}
         </button>
@@ -18,7 +18,7 @@ export default function SortControls({ onMiss, onCheck, onUndo, canUndo }: Props
           onClick={onUndo}
           disabled={!canUndo}
           aria-label="Undo last card"
-          className="rounded px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-40"
+          className="rounded px-3 py-2 text-sm hover:bg-hover disabled:opacity-40"
         >
           Undo
         </button>
@@ -26,12 +26,12 @@ export default function SortControls({ onMiss, onCheck, onUndo, canUndo }: Props
           type="button"
           onClick={onCheck}
           aria-label="Mark as checked (2)"
-          className="h-14 w-14 rounded-full border-2 border-green-500 text-2xl text-green-700 hover:bg-green-50"
+          className="h-14 w-14 rounded-full border-2 border-ok bg-surface text-2xl text-ok hover:bg-ok/10"
         >
           {'\u2713'}
         </button>
       </div>
-      <p className="mt-4 text-center text-xs text-gray-500">Space flips, 1 marks missed, 2 marks checked.</p>
+      <p className="mt-4 text-center text-xs text-muted">Space flips, 1 marks missed, 2 marks checked.</p>
     </>
   )
 }

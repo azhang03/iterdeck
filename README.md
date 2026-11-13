@@ -7,13 +7,14 @@ Flashcards in the style of Quizlet, with a code mode that shows a card as a codi
 - Folders and sets, with search and sort. A set can be in one folder.
 - An editor for a set: cards with a term, a definition, and an image on each side; drag to reorder; swap all sides; Tab on the last card adds one.
 - A set page with the cards, a star on each, inline edit, and an order by the Flashcards stats.
-- Card text is markdown (GFM). A single line break stays a line break; indented code needs a fenced block. Fenced code blocks tagged `python` or `sql` are highlighted with the editor's parsers; other languages show as plain monospace. Raw HTML shows as text.
+- Card text is markdown (GFM). A single line break stays a line break; indented code needs a fenced block. Fenced code blocks tagged `python` or `sql` are highlighted with the editor's parsers and colours; other languages show as plain monospace. Raw HTML shows as text.
 - Flashcards: flip, sort with X and check (keys 1 and 2), undo, shuffle, rounds over the missed cards until none are missed. Each sort updates the card's stats.
 - Learn: the cards in groups of n. Passes over the missed cards follow at once; a debrief shows when a group is done or a card is carried (the one-card rule: a solo second chance, then carry to the next group).
 - Code mode: with it on, Flashcards and Learn show the card as a problem description next to a CodeMirror editor. The side used last gets the keys.
 - Running code: a set picks a language. PostgreSQL sets upload CSV files that become tables; Run (Cmd+Enter) shows the rows and Check compares them with the query on the back of the card. Python sets run in the browser; each card can carry test cases, and Run tests (Cmd+Shift+Enter) shows each case as pass or fail. Both run in the browser (PGlite and Pyodide), with no install. The code written for each card is saved.
 - Sessions: leave a Flashcards or Learn page and come back to the same session. Flashcards continues at the first card not yet sorted; Learn at the first card of the current group. Restart starts over and clears the code written for every card.
 - Clocks: Flashcards and Learn show two clocks at the top. Card is the time on the current card. It starts again with each card. Session is the total time of the session. The time is saved with the session. Time away from the page does not count. The clock stops when the session is complete.
+- Light and dark: a button in the sidebar and in the study header switches the colour scheme. The choice is saved in the browser. With no saved choice the app follows the system setting.
 
 ## Run
 
@@ -36,10 +37,11 @@ All data lives in `data/` at the repo root (git-ignored): `data/iterdeck.db` (SQ
 
 - `src/` is the client (React, Vite, TypeScript, Tailwind, React Router).
   - `pages/` has one file per route: Home, Folders, Sets, Folder, Set, Editor, Flashcards, Learn.
-  - `components/` has the shared UI: layout, dialogs, the editor panels (`CardPanel`, `CodeSettings`), the study pieces (`StudyShell`, `StudyCard`, `SortControls`, `ProgressBar`, `OptionsPanel`, `Clock`), code mode (`CodeStudyLayout`, `ProblemPanel`, `CodeEditor`, `OutputPanel`), and `CardText` (markdown rendering, styled in `index.css`).
+  - `components/` has the shared UI: layout, dialogs, the editor panels (`CardPanel`, `CodeSettings`), the study pieces (`StudyShell`, `StudyCard`, `SortControls`, `ProgressBar`, `OptionsPanel`, `Clock`), `ThemeToggle`, code mode (`CodeStudyLayout`, `ProblemPanel`, `CodeEditor`, `OutputPanel`), and `CardText` (markdown rendering, styled in `index.css`).
   - `study/` has the logic without React: `flashcards.ts` (rounds), `learn.ts` (groups and the one-card rule), `clock.ts` (the stopwatch and the clock text), `stats.ts`, `options.ts`, `languages.ts`. Unit tested.
   - `run/` runs code in the browser: `runner.ts` (the interface), `sql.ts` (PGlite), `python.ts` with `python.worker.ts` and `pyodideSession.ts` (Pyodide), `compare.ts` (row comparison for Check), `cases.ts` (test case splitting). Unit tested in Node.
-  - `editor/cards.ts` has the editor's card helpers.
+  - `editor/cards.ts` has the editor's card helpers. `editor/highlight.ts` has the one highlighter for the code editor and for code blocks in card text.
+  - `index.css` has the colours of the light and the dark scheme as tokens (`bg-surface`, `text-muted`, `border-line`, and so on). Components use the tokens, not fixed colours. `theme.ts` reads and switches the scheme; `index.html` sets it before the first paint.
   - `hooks.ts` has `useAsync`, `useDebounced`, and the study page hooks (`useStudyPage`, `useProgressSaver`, `useSessionClock`, `useCodeDocs`, `useCodeSaver`).
   - `api.ts` has typed fetch helpers for the API.
 - `shared/types.ts` has the row types that the client and the server share.

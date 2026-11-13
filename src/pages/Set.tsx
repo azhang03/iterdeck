@@ -59,9 +59,9 @@ function SetView({ initial }: { initial: SetWithCards }) {
   return (
     <div className="mx-auto max-w-4xl">
       {set.folder && (
-        <p className="mb-2 text-sm text-gray-500">
+        <p className="mb-2 text-sm text-muted">
           in{' '}
-          <Link to={`/folders/${set.folder.id}`} className="text-blue-700 hover:underline">
+          <Link to={`/folders/${set.folder.id}`} className="text-accent hover:underline">
             {set.folder.name}
           </Link>
         </p>
@@ -73,17 +73,17 @@ function SetView({ initial }: { initial: SetWithCards }) {
             <input type="checkbox" checked={set.code_mode === 1} disabled={busy} onChange={() => void toggleCodeMode()} />
             Code mode
           </label>
-          <Link to={`/sets/${set.id}/edit`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+          <Link to={`/sets/${set.id}/edit`} className="rounded px-4 py-2 text-sm hover:bg-hover">
             Edit
           </Link>
-          <button type="button" onClick={() => void remove()} className="rounded px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+          <button type="button" onClick={() => void remove()} className="rounded px-4 py-2 text-sm text-bad hover:bg-bad/10">
             Delete
           </button>
         </div>
       </div>
-      {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      {error && <p className="mb-4 text-sm text-bad">Error: {error}</p>}
       {set.code_mode === 1 && (
-        <p className="-mt-4 mb-6 text-sm text-gray-500">
+        <p className="-mt-4 mb-6 text-sm text-muted">
           {LANGUAGES.find((l) => l.value === set.language)?.label ?? 'No language yet'}
           {set.language === 'postgresql' && set.files.length > 0 && (
             <span>. Tables: {set.files.map((f) => f.table_name).join(', ')}</span>
@@ -102,7 +102,7 @@ function SetView({ initial }: { initial: SetWithCards }) {
           value={order}
           onChange={(e) => setOrder(e.target.value as CardOrder)}
           aria-label="Card order"
-          className="rounded border border-gray-300 bg-white px-3 py-1 text-sm"
+          className="rounded border border-line bg-surface px-3 py-1 text-sm"
         >
           <option value="original">Original</option>
           <option value="stats-asc">Stats (low to high)</option>
@@ -126,9 +126,9 @@ function SetView({ initial }: { initial: SetWithCards }) {
 
 function StudyLink({ to, title, text }: { to: string; title: string; text: string }) {
   return (
-    <Link to={to} className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-blue-400">
+    <Link to={to} className="block rounded-lg border border-line bg-surface p-6 shadow-sm hover:border-accent">
       <div className="text-xl font-semibold">{title}</div>
-      <div className="text-sm text-gray-500">{text}</div>
+      <div className="text-sm text-muted">{text}</div>
     </Link>
   )
 }

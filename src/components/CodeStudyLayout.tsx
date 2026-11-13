@@ -31,7 +31,7 @@ type Props = {
 
 type Loaded = { tables: Table[]; textFallback: string[]; failed: { name: string; message: string }[] }
 
-const toolButton = 'rounded px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50'
+const toolButton = 'rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50'
 
 // Code mode: the card as a problem description on the left, a code editor with
 // a run toolbar and an output panel on the right. The side used last (by mouse
@@ -166,7 +166,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   }
 
   const outline = (side: FocusSide) =>
-    `flex min-h-0 flex-col overflow-hidden rounded-xl border bg-white shadow-sm ${focusSide === side ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'}`
+    `flex min-h-0 flex-col overflow-hidden rounded-card border bg-surface shadow-card ${focusSide === side ? 'border-accent ring-2 ring-accent/30' : 'border-line'}`
 
   const languageLabel = LANGUAGES.find((l) => l.value === set.language)?.label
   const statusText = busy
@@ -191,7 +191,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
           {set.language === 'postgresql' && loaded && <TablesSection {...loaded} />}
           {panel}
         </div>
-        {footer && <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3">{footer}</div>}
+        {footer && <div className="shrink-0 border-t border-line bg-surface px-4 py-3">{footer}</div>}
       </section>
       <section
         aria-label="Code editor"
@@ -200,16 +200,16 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
         className={outline('editor')}
       >
         {set.language === null ? (
-          <div className="p-6 text-sm text-gray-600">
+          <div className="p-6 text-sm text-muted">
             Pick a language in the{' '}
-            <Link to={`/sets/${set.id}/edit`} className="text-blue-700 hover:underline">
+            <Link to={`/sets/${set.id}/edit`} className="text-accent hover:underline">
               editor
             </Link>{' '}
             to run code here.
           </div>
         ) : (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2">
+            <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2">
               <span className="mr-2 text-sm font-medium">{languageLabel}</span>
               <button type="button" onClick={() => void run()} disabled={!ready} title="Cmd+Enter" className={toolButton}>
                 Run
@@ -227,7 +227,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
               <button type="button" onClick={() => setClearToken((t) => t + 1)} className={toolButton}>
                 Clear
               </button>
-              <span className={`ml-auto text-xs ${status === 'failed' ? 'text-red-600' : 'text-gray-500'}`} role="status">
+              <span className={`ml-auto text-xs ${status === 'failed' ? 'text-bad' : 'text-muted'}`} role="status">
                 {statusText}
               </span>
             </div>
@@ -253,23 +253,23 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
 
 function TablesSection({ tables, textFallback, failed }: Loaded) {
   return (
-    <details className="mb-4 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+    <details className="mb-4 rounded border border-line bg-page px-3 py-2 text-sm">
       <summary className="cursor-pointer font-medium">Tables</summary>
-      {tables.length === 0 && failed.length === 0 && <p className="mt-2 text-gray-500">No tables. Upload CSV files in the editor.</p>}
+      {tables.length === 0 && failed.length === 0 && <p className="mt-2 text-muted">No tables. Upload CSV files in the editor.</p>}
       <ul className="mt-2 space-y-2">
         {tables.map((t) => (
           <li key={t.name}>
             <span className="font-mono font-medium">{t.name}</span>
-            <span className="ml-2 font-mono text-xs text-gray-600">{t.columns.map((c) => `${c.name} ${c.type}`).join(', ')}</span>
+            <span className="ml-2 font-mono text-xs text-muted">{t.columns.map((c) => `${c.name} ${c.type}`).join(', ')}</span>
             {textFallback.includes(t.name) && (
-              <span className="ml-2 text-xs text-amber-700">loaded as text: a value did not match the inferred types</span>
+              <span className="ml-2 text-xs text-miss">loaded as text: a value did not match the inferred types</span>
             )}
           </li>
         ))}
         {failed.map((f) => (
           <li key={f.name}>
             <span className="font-mono font-medium">{f.name}</span>
-            <span className="ml-2 text-xs text-red-600">not loaded: {f.message}</span>
+            <span className="ml-2 text-xs text-bad">not loaded: {f.message}</span>
           </li>
         ))}
       </ul>

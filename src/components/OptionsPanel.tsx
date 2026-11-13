@@ -35,12 +35,12 @@ export default function OptionsPanel({ options, onChange, onRestart, onClose, sh
             max={50}
             value={options.groupSize}
             onChange={(e) => onChange({ ...options, groupSize: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })}
-            className="w-20 rounded border border-gray-300 px-2 py-1"
+            className="w-20 rounded border border-line px-2 py-1"
           />
         </label>
       )}
       <div className="flex justify-between">
-        <button type="button" onClick={onRestart} className="rounded px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+        <button type="button" onClick={onRestart} className="rounded px-4 py-2 text-sm text-bad hover:bg-bad/10">
           Restart
         </button>
         <PrimaryButton onClick={onClose}>Done</PrimaryButton>

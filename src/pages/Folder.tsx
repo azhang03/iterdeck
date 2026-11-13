@@ -73,10 +73,10 @@ function FolderView({ initial }: { initial: FolderRow }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-label="Folder name"
-              className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-xl font-semibold"
+              className="flex-1 rounded border border-line bg-surface px-3 py-2 text-xl font-semibold"
             />
             <PrimaryButton type="submit">Save</PrimaryButton>
-            <button type="button" onClick={() => setRenaming(false)} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+            <button type="button" onClick={() => setRenaming(false)} className="rounded px-4 py-2 text-sm hover:bg-hover">
               Cancel
             </button>
           </form>
@@ -88,7 +88,7 @@ function FolderView({ initial }: { initial: FolderRow }) {
               setRenaming(true)
             }}
             title="Rename"
-            className="rounded text-left text-2xl font-semibold hover:bg-gray-100"
+            className="rounded text-left text-2xl font-semibold hover:bg-hover"
           >
             {folder.name}
           </button>
@@ -97,12 +97,12 @@ function FolderView({ initial }: { initial: FolderRow }) {
           <PrimaryButton onClick={() => setMenu('add')} aria-label="Add set">
             + Add set
           </PrimaryButton>
-          <button type="button" onClick={() => void deleteFolder()} className="rounded px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+          <button type="button" onClick={() => void deleteFolder()} className="rounded px-4 py-2 text-sm text-bad hover:bg-bad/10">
             Delete
           </button>
         </div>
       </div>
-      {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      {error && <p className="mb-4 text-sm text-bad">Error: {error}</p>}
       {menu === 'add' && (
         <AddSetMenu
           folder={folder}
@@ -125,15 +125,15 @@ function FolderView({ initial }: { initial: FolderRow }) {
           <CardGrid>
             {sets.data.map((s) => (
               <div key={s.id} className="relative">
-                <Link to={`/sets/${s.id}`} className="block rounded-lg border border-gray-200 bg-white p-4 pr-24 shadow-sm hover:border-blue-400">
-                  <div className="mb-1 text-xs uppercase tracking-wide text-gray-500">{s.code_mode ? 'Set, code mode' : 'Set'}</div>
+                <Link to={`/sets/${s.id}`} className="block rounded-lg border border-line bg-surface p-4 pr-24 shadow-sm hover:border-accent">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-muted">{s.code_mode ? 'Set, code mode' : 'Set'}</div>
                   <div className="font-medium">{s.title}</div>
                 </Link>
                 <button
                   type="button"
                   onClick={() => void removeFromFolder(s)}
                   aria-label={`Remove ${s.title} from folder`}
-                  className="absolute top-3 right-3 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+                  className="absolute top-3 right-3 rounded px-2 py-1 text-xs text-muted hover:bg-hover"
                 >
                   Remove
                 </button>

@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>iterdeck</title>
+    <script>
+      // The colour scheme, set before the first paint so the page does not flash:
+      // the saved choice, or the system setting when there is none.
+      // src/theme.ts writes the same storage key.
+      ;(function () {
+        var theme = null
+        try {
+          theme = localStorage.getItem('iterdeck-theme')
+        } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -132,14 +132,14 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"
           aria-label="Title"
-          className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-xl font-semibold"
+          className="flex-1 rounded border border-line bg-surface px-3 py-2 text-xl font-semibold"
         />
-        <span className="text-sm text-gray-500">{saving ? 'Saving' : dirty ? 'Unsaved changes' : 'Saved'}</span>
+        <span className="text-sm text-muted">{saving ? 'Saving' : dirty ? 'Unsaved changes' : 'Saved'}</span>
         <button
           type="button"
           onClick={() => void save()}
           disabled={saving || !dirty}
-          className="rounded px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+          className="rounded px-4 py-2 text-sm hover:bg-hover disabled:opacity-50"
         >
           Save
         </button>
@@ -147,12 +147,12 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
           Done
         </PrimaryButton>
       </div>
-      {error && <p className="mb-4 text-sm text-red-600">Error: {error}</p>}
+      {error && <p className="mb-4 text-sm text-bad">Error: {error}</p>}
       {initial.code_mode === 1 && (
         <CodeSettings setId={initial.id} language={language} files={files} onLanguage={setLanguage} onFiles={setFiles} />
       )}
       <div className="mb-4 flex justify-end">
-        <button type="button" onClick={() => setCards(swapSides)} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+        <button type="button" onClick={() => setCards(swapSides)} className="rounded px-3 py-1 text-sm hover:bg-hover">
           Swap terms and definitions
         </button>
       </div>
@@ -181,7 +181,7 @@ function EditorForm({ initial }: { initial: SetWithCards }) {
       <button
         type="button"
         onClick={addCard}
-        className="mt-4 w-full rounded-lg border border-dashed border-gray-300 bg-white py-3 text-sm font-medium hover:border-blue-400"
+        className="mt-4 w-full rounded-lg border border-dashed border-line bg-surface py-3 text-sm font-medium hover:border-accent"
       >
         Add card
       </button>

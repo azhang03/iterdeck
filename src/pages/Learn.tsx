@@ -33,7 +33,7 @@ export default function Learn() {
   const deck = deckFor(set.cards, options)
 
   const actions = (
-    <button type="button" onClick={() => setOptionsOpen(true)} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+    <button type="button" onClick={() => setOptionsOpen(true)} className="rounded px-3 py-1 text-sm hover:bg-hover">
       Options
     </button>
   )
@@ -51,7 +51,7 @@ export default function Learn() {
             ) : (
               <>
                 This set has no cards.{' '}
-                <Link to={`/sets/${set.id}/edit`} className="text-blue-700 hover:underline">
+                <Link to={`/sets/${set.id}/edit`} className="text-accent hover:underline">
                   Open the editor
                 </Link>
               </>
@@ -154,11 +154,11 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
         onClick={() => setS(learn.shuffle)}
         disabled={!learn.canShuffle(s)}
         title="Shuffle the cards still to come"
-        className="rounded px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-50"
+        className="rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50"
       >
         Shuffle
       </button>
-      <button type="button" onClick={onOpenOptions} className="rounded px-3 py-1 text-sm hover:bg-gray-100">
+      <button type="button" onClick={onOpenOptions} className="rounded px-3 py-1 text-sm hover:bg-hover">
         Options
       </button>
     </>
@@ -168,12 +168,12 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const round = s.phase === 'done' ? undefined : s.passes.length
 
   const finished = (
-    <div className={codeMode ? 'text-center' : 'rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm'}>
+    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card'}>
       <h2 className="mb-2 text-xl font-semibold">All groups done</h2>
-      <p className="mb-6 text-gray-600">Every card was checked.</p>
+      <p className="mb-6 text-muted">Every card was checked.</p>
       <div className="flex justify-center gap-3">
         <PrimaryButton onClick={onRestart}>Restart</PrimaryButton>
-        <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-gray-100">
+        <Link to={`/sets/${set.id}`} className="rounded px-4 py-2 text-sm hover:bg-hover">
           Back to the set
         </Link>
       </div>
@@ -191,7 +191,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
     />
   )
 
-  const solo = learn.isSolo(s) && <p className="mb-3 text-center text-sm text-gray-500">One more try for this card.</p>
+  const solo = learn.isSolo(s) && <p className="mb-3 text-center text-sm text-muted">One more try for this card.</p>
 
   return (
     <StudyShell
@@ -259,24 +259,24 @@ function Debrief({ s, options, plain = false, onContinue, onUndo }: DebriefProps
       : 'Continue to the next group.'
 
   return (
-    <div className={plain ? '' : 'rounded-xl border border-gray-200 bg-white p-8 shadow-sm'}>
+    <div className={plain ? '' : 'rounded-card border border-line bg-surface p-8 shadow-card'}>
       <h2 className="mb-1 text-center text-xl font-semibold">Group {s.groupIndex + 1} done</h2>
-      <p className="mb-6 text-center text-gray-600">
+      <p className="mb-6 text-center text-muted">
         {firstTry} of {rows.length} on the first try, {s.passes.length} {s.passes.length === 1 ? 'pass' : 'passes'}. {next}
       </p>
       <ul className="mb-6 space-y-1">
         {rows.map(({ card, misses }) => (
           <li key={card.id} className="flex items-center gap-3 text-sm">
-            <span className={misses === 0 ? 'text-green-700' : 'text-red-600'}>{misses === 0 ? '\u2713' : '\u2715'}</span>
+            <span className={misses === 0 ? 'text-ok' : 'text-bad'}>{misses === 0 ? '\u2713' : '\u2715'}</span>
             <span className="truncate">{sideText(card, options.front).text || '(empty)'}</span>
-            {misses > 0 && <span className="text-xs text-gray-500">missed {misses === 1 ? 'once' : `${misses} times`}</span>}
+            {misses > 0 && <span className="text-xs text-muted">missed {misses === 1 ? 'once' : `${misses} times`}</span>}
           </li>
         ))}
       </ul>
       <div className="flex flex-col items-center gap-2">
         <PrimaryButton onClick={onContinue}>Continue</PrimaryButton>
-        <span className="text-xs text-gray-500">or press Space</span>
-        <button type="button" onClick={onUndo} className="mt-2 rounded px-3 py-1 text-sm hover:bg-gray-100">
+        <span className="text-xs text-muted">or press Space</span>
+        <button type="button" onClick={onUndo} className="mt-2 rounded px-3 py-1 text-sm hover:bg-hover">
           Undo last card
         </button>
       </div>

@@ -18,7 +18,7 @@ type Props = {
   onTabOut: () => void
 }
 
-const area = 'w-full resize-none rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+const area = 'w-full resize-none rounded border border-line px-3 py-2 text-sm focus:border-accent focus:outline-none'
 
 export default function CardPanel({ card, index, language, focusTerm, isLast, onChange, onFocused, onDelete, onTabOut }: Props) {
   const termRef = useRef<HTMLTextAreaElement>(null)
@@ -42,9 +42,9 @@ export default function CardPanel({ card, index, language, focusTerm, isLast, on
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm ${isDragging ? 'relative z-10 shadow-lg' : ''}`}
+      className={`rounded-lg border border-line bg-surface p-4 shadow-sm ${isDragging ? 'relative z-10 shadow-lg' : ''}`}
     >
-      <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
+      <div className="mb-2 flex items-center justify-between text-xs text-muted">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -52,13 +52,13 @@ export default function CardPanel({ card, index, language, focusTerm, isLast, on
             {...attributes}
             {...listeners}
             aria-label={`Move card ${index + 1}`}
-            className="cursor-grab rounded px-2 py-1 hover:bg-gray-100 active:cursor-grabbing"
+            className="cursor-grab rounded px-2 py-1 hover:bg-hover active:cursor-grabbing"
           >
             ::
           </button>
           <span>{index + 1}</span>
         </div>
-        <button type="button" onClick={onDelete} aria-label={`Delete card ${index + 1}`} className="rounded px-2 py-1 hover:bg-gray-100">
+        <button type="button" onClick={onDelete} aria-label={`Delete card ${index + 1}`} className="rounded px-2 py-1 hover:bg-hover">
           Delete
         </button>
       </div>
@@ -75,7 +75,7 @@ export default function CardPanel({ card, index, language, focusTerm, isLast, on
               aria-label={`Term ${index + 1}`}
               className={area}
             />
-            <span className="mt-1 block text-xs uppercase tracking-wide text-gray-500">Term</span>
+            <span className="mt-1 block text-xs uppercase tracking-wide text-muted">Term</span>
           </label>
           <label className="block">
             <textarea
@@ -87,7 +87,7 @@ export default function CardPanel({ card, index, language, focusTerm, isLast, on
               aria-label={`Definition ${index + 1}`}
               className={area}
             />
-            <span className="mt-1 block text-xs uppercase tracking-wide text-gray-500">Definition</span>
+            <span className="mt-1 block text-xs uppercase tracking-wide text-muted">Definition</span>
           </label>
         </div>
         <ImageSquare
@@ -107,7 +107,7 @@ export default function CardPanel({ card, index, language, focusTerm, isLast, on
             aria-label={`Tests ${index + 1}`}
             className={`${area} font-mono`}
           />
-          <span className="mt-1 block text-xs uppercase tracking-wide text-gray-500">Tests</span>
+          <span className="mt-1 block text-xs uppercase tracking-wide text-muted">Tests</span>
         </label>
       )}
       {language === 'postgresql' && (

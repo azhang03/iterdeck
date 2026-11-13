@@ -10,14 +10,14 @@ export default function ProgressBar({ done, total, segments }: Props) {
   const all = parts.reduce((n, p) => n + p.size, 0) || 1
   return (
     <div className="mb-6">
-      <div className="flex h-2 gap-0.5 overflow-hidden rounded bg-gray-200" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
+      <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
         {parts.map((p, i) => (
-          <div key={i} className="relative h-full bg-gray-200" style={{ width: `${(p.size / all) * 100}%` }}>
-            <div className="h-full bg-blue-600 transition-[width]" style={{ width: `${p.size === 0 ? 0 : (p.done / p.size) * 100}%` }} />
+          <div key={i} className="relative h-full bg-track" style={{ width: `${(p.size / all) * 100}%` }}>
+            <div className="h-full bg-accent transition-[width]" style={{ width: `${p.size === 0 ? 0 : (p.done / p.size) * 100}%` }} />
           </div>
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-xs text-gray-500">
+      <div className="mt-1 flex justify-between text-xs text-muted">
         <span>{done} done</span>
         <span>{total - done} left</span>
       </div>

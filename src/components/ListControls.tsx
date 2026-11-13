@@ -27,13 +27,13 @@ export default function ListControls({ q, onQ, sort, onSort, placeholder }: Prop
         }}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+        className="flex-1 rounded border border-line bg-surface px-3 py-2 text-sm"
       />
       <select
         value={sort}
         onChange={(e) => onSort(e.target.value as ListSort)}
         aria-label="Sort"
-        className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+        className="rounded border border-line bg-surface px-3 py-2 text-sm"
       >
         {SORTS.map((s) => (
           <option key={s.value} value={s.value}>

@@ -1,14 +1,30 @@
 import { python } from '@codemirror/lang-python'
 import { PostgreSQL, sql } from '@codemirror/lang-sql'
 import { indentWithTab } from '@codemirror/commands'
-import { indentUnit } from '@codemirror/language'
+import { indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { setDiagnostics } from '@codemirror/lint'
 import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { codeHighlighter } from '../editor/highlight.ts'
 import type { RunError } from '../run/runner.ts'
 import type { Language } from '../study/languages.ts'
+
+// The editor's colours come from the tokens in index.css, so the editor follows
+// the light and dark switch with no change to its state.
+const selection = 'color-mix(in srgb, var(--color-accent) 28%, transparent)'
+const editorTheme = EditorView.theme({
+  '&': { height: '100%', color: 'var(--tok-plain)', backgroundColor: 'var(--color-editor)' },
+  '.cm-content': { caretColor: 'var(--color-ink)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-ink)' },
+  '.cm-gutters': { backgroundColor: 'var(--color-editor)', color: 'var(--color-muted)', border: 'none' },
+  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'color-mix(in srgb, var(--color-ink) 5%, transparent)' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': { backgroundColor: selection },
+  '.cm-selectionMatch': { backgroundColor: 'color-mix(in srgb, var(--color-accent) 14%, transparent)' },
+  '.cm-tooltip, .cm-panels': { backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', border: '1px solid var(--color-line)' },
+  '.cm-foldPlaceholder': { backgroundColor: 'var(--color-hover)', border: 'none', color: 'var(--color-muted)' },
+})
 
 function languageExtension(language: Language) {
   return language === 'python' ? python() : sql({ dialect: PostgreSQL })
@@ -64,7 +80,8 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, on
             docs.set(activeCard.current, text)
             handlers.current.onChange(activeCard.current, text)
           }),
-          EditorView.theme({ '&': { height: '100%' } }),
+          editorTheme,
+          syntaxHighlighting(codeHighlighter),
         ],
       }),
     [docs, langCompartment],
