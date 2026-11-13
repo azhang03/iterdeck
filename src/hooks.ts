@@ -180,8 +180,21 @@ export function useSessionClock(progress: ProgressSaver, snapshot: object | null
   const running = snapshot !== null
 
   // An undo on the last summary opens the session, so the clock can start again.
+  // The browser can keep a page that the user left and show it again on Back.
+  // The page is away from `pagehide` to `pageshow`, so the clock stops for that time.
   useEffect(() => {
-    watch.current = runWatch(watch.current, running, Date.now())
+    const run = (on: boolean) => {
+      watch.current = runWatch(watch.current, on, Date.now())
+    }
+    const onPageHide = () => run(false)
+    const onPageShow = () => run(running)
+    run(running)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
   }, [running])
 
   useEffect(() => {
