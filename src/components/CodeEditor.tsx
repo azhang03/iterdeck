@@ -24,6 +24,10 @@ const editorTheme = EditorView.theme({
   '.cm-selectionMatch': { backgroundColor: 'color-mix(in srgb, var(--color-accent) 14%, transparent)' },
   '.cm-tooltip, .cm-panels': { backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', border: '1px solid var(--color-line)' },
   '.cm-foldPlaceholder': { backgroundColor: 'var(--color-hover)', border: 'none', color: 'var(--color-muted)' },
+  // The search and lint panels: CodeMirror's own light fields and buttons do not fit the dark scheme.
+  '.cm-textfield': { backgroundColor: 'var(--color-editor)', border: '1px solid var(--color-line)' },
+  '.cm-button': { backgroundImage: 'none', backgroundColor: 'var(--color-hover)', border: '1px solid var(--color-line)' },
+  '.cm-panel.cm-panel-lint ul [aria-selected]': { backgroundColor: 'var(--color-hover)' },
 })
 
 function languageExtension(language: Language) {

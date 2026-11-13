@@ -18,16 +18,19 @@
   --color-miss: #b45309; /* missed */
   --color-bad: #c62828; /* errors, delete */
   --color-track: #d3d7df;
-  --color-hover: #e6e8ed;
+  --color-hover: #dcdfe5;
   --color-code: #eceef2; /* code blocks in card text */
   --color-editor: #f9fafb;
   --color-star: #b7791f;
 
   --radius-card: 0.875rem;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 10px 26px -14px rgb(16 24 40 / 0.22);
+  /* Tailwind copies a shadow value into the utility, so the value that each
+     scheme sets is the plain variable below. */
+  --shadow-card: var(--card-shadow);
 }
 
 :root {
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 10px 26px -14px rgb(16 24 40 / 0.22);
   /* Code colours, for the editor and for code blocks in card text. */
   --tok-plain: var(--color-ink);
   --tok-control: #7c3aed;
@@ -57,12 +60,12 @@
   --color-ok: #62d08e;
   --color-miss: #efb84d;
   --color-bad: #f2817b;
-  --color-track: #303238;
+  --color-track: #383a41;
   --color-hover: #303238;
   --color-code: #1f2023;
   --color-editor: #212226;
   --color-star: #f2c94c;
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03), 0 14px 34px -18px rgb(0 0 0 / 0.8);
+  --card-shadow: 0 1px 0 rgb(255 255 255 / 0.03), 0 14px 34px -18px rgb(0 0 0 / 0.8);
 
   /* VS Code Dark+. */
   --tok-plain: #d4d4d4;

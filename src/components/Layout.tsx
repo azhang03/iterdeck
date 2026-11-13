@@ -10,7 +10,7 @@ const links = [
 export default function Layout() {
   return (
     <div className="flex min-h-screen bg-page text-ink">
-      <nav className="flex w-48 shrink-0 flex-col border-r border-line bg-surface p-4">
+      <nav className="sticky top-0 flex h-screen w-48 shrink-0 flex-col border-r border-line bg-surface p-4">
         <NavLink to="/" className="mb-6 block text-lg font-semibold">
           Iterdeck
         </NavLink>
