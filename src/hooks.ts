@@ -270,7 +270,8 @@ export function useStudyMotion(codeMode: boolean): StudyMotion {
 export type CardNotes = {
   // The notes written in this visit, by card id. A card that is not here has the note it was loaded with.
   edited: Record<number, string>
-  save: (cardId: number, note: string) => void
+  // With keepalive the request outlives the page; it is for the save as the page goes away.
+  save: (cardId: number, note: string, keepalive?: boolean) => void
 }
 
 // The user's notes on the cards. A change shows at once and is saved in the
@@ -279,8 +280,13 @@ export type CardNotes = {
 export function useCardNotes(): CardNotes {
   const [edited, setEdited] = useState<Record<number, string>>({})
   const chain = useRef(Promise.resolve())
-  const save = useCallback((cardId: number, note: string) => {
+  const save = useCallback((cardId: number, note: string, keepalive = false) => {
     setEdited((notes) => ({ ...notes, [cardId]: note }))
+    if (keepalive) {
+      // The page is going away: the request cannot wait for the ones before it.
+      void api.cards.update(cardId, { note }, { keepalive: true }).catch(() => {})
+      return
+    }
     chain.current = chain.current.then(async () => {
       await api.cards.update(cardId, { note }).catch(() => {})
     })

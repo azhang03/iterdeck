@@ -270,7 +270,7 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
   const controls = <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
 
   // The note of the card on screen. The key gives each card its own editor.
-  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text) => notes.save(card.id, text)} />
+  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text, keepalive) => notes.save(card.id, text, keepalive)} />
 
   return (
     <StudyShell set={set} mode="Flashcards" round={s.round} clocks={clocks} actions={actions} wide={codeMode}>

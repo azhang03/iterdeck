@@ -233,7 +233,7 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
   )
 
   // The note of the card on screen. The key gives each card its own editor.
-  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text) => notes.save(card.id, text)} />
+  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text, keepalive) => notes.save(card.id, text, keepalive)} />
 
   const solo = learn.isSolo(s) && <p className="mb-3 text-center text-sm text-muted">One more try for this card.</p>
 
