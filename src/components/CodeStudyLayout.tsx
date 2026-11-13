@@ -12,6 +12,7 @@ import {
 } from '../run/runner.ts'
 import { SqlRunner, type Table } from '../run/sql.ts'
 import { LANGUAGES } from '../study/languages.ts'
+import type { TestTally } from '../study/scorecard.ts'
 import CodeEditor from './CodeEditor.tsx'
 import OutputPanel, { type OutputTab } from './OutputPanel.tsx'
 
@@ -28,6 +29,7 @@ type Props = {
   panel: ReactNode // the description panel content (the card, a summary, or a debrief)
   footer?: ReactNode // sort buttons, in a bar at the bottom of the panel
   panelRef?: Ref<HTMLElement> // the description panel, for the study motion
+  onTested?: (cardId: number, tally: TestTally) => void // a test run of a card ended, for the scorecard
 }
 
 type Loaded = { tables: Table[]; textFallback: string[]; failed: { name: string; message: string }[] }
@@ -37,7 +39,7 @@ const toolButton = 'rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50
 // Code mode: the card as a problem description on the left, a code editor with
 // a run toolbar and an output panel on the right. The side used last (by mouse
 // or keyboard focus) gets the keys; an outline marks it.
-export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, docs, onCodeChange, panelKey, panel, footer, panelRef }: Props) {
+export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, docs, onCodeChange, panelKey, panel, footer, panelRef, onTested }: Props) {
   const [clearToken, setClearToken] = useState(0)
   const runner = useRef<Runner | null>(null)
   const [status, setStatus] = useState<PrepareStatus>('idle')
@@ -145,6 +147,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
       if (activeId.current !== card.id) return
       setVerdict(result)
       setTestRun((n) => n + 1)
+      if (result.length > 0) onTested?.(card.id, { passed: result.filter((r) => r.ok).length, total: result.length })
       setTab('result')
     } finally {
       setBusy(false)

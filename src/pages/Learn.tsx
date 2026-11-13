@@ -8,18 +8,21 @@ import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.t
 import OptionsPanel from '../components/OptionsPanel.tsx'
 import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
+import Scorecard, { type ScoreRow } from '../components/Scorecard.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { formatClock } from '../study/clock.ts'
 import * as learn from '../study/learn.ts'
 import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
+import { cardLabel, savedTallies, testsPassed, timeByCard, timeOf, type TestTally } from '../study/scorecard.ts'
 
 export default function Learn() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'learn', learn.resume)
-  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   // Code mode state lives here so an options change keeps the code and the active side.
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
@@ -65,6 +68,7 @@ export default function Learn() {
           deck={deck}
           initial={initial}
           initialElapsedMs={initialElapsedMs}
+          initialSaved={initialSaved}
           options={options}
           paused={optionsOpen}
           progress={progress}
@@ -101,6 +105,7 @@ type SessionProps = {
   deck: Card[]
   initial: learn.LearnState | null
   initialElapsedMs: number
+  initialSaved: unknown
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
@@ -109,16 +114,21 @@ type SessionProps = {
   code: CodeState
 }
 
-function Session({ set, deck, initial, initialElapsedMs, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? learn.start(deck, options.groupSize))
   const card = learn.current(s)
   const codeMode = set.code_mode === 1
   const { target: motionTarget, play } = useStudyMotion(codeMode)
+  // Names the card on screen and its place in the group; null at a debrief and at the end.
+  const cardKey = s.phase === 'round' && card ? `${s.groupIndex}-${s.index}-${card.id}` : null
+  const cardTime = useCardTime(cardKey)
+  // The last test run of each card, for the scorecard. Saved with the session; a new session starts with none.
+  const [tallies, setTallies] = useState(() => savedTallies(initialSaved))
 
   function sort(checked: boolean) {
     if (s.phase !== 'round' || !card) return
     play({ kind: 'next', checked })
-    setS(learn.sort(s, checked))
+    setS(learn.sort(s, checked, cardTime()))
   }
 
   function undo() {
@@ -142,13 +152,13 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
 
   // The start of the current group is saved; progress inside the group is not.
   // Dropped when every group is done.
-  const snapshot = useMemo(() => (s.phase === 'done' ? null : learn.snapshot(s, options)), [s, options])
+  const snapshot = useMemo(() => (s.phase === 'done' ? null : { ...learn.snapshot(s, options), tallies }), [s, options, tallies])
   const session = useSessionClock(progress, snapshot, initialElapsedMs)
 
   // The card clock starts again for each card. No card is on screen at a debrief.
   const clocks = (
     <>
-      {s.phase === 'round' && card && <Clock key={`${s.groupIndex}-${s.index}-${card.id}`} label="Card" />}
+      {cardKey && <Clock key={cardKey} label="Card" />}
       <Clock label="Session" read={session.read} running={session.running} />
     </>
   )
@@ -206,7 +216,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
     </div>
   )
 
-  const debrief = <Debrief s={s} options={options} plain={codeMode} onContinue={() => swap(learn.proceed)} onUndo={undo} />
+  const debrief = <Debrief s={s} options={options} codeMode={codeMode} tallies={tallies} onContinue={() => swap(learn.proceed)} onUndo={undo} />
 
   const controls = (
     <SortControls
@@ -255,6 +265,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
           }
           footer={s.phase === 'round' ? controls : undefined}
           panelRef={motionTarget}
+          onTested={(cardId, tally) => setTallies((t) => ({ ...t, [cardId]: tally }))}
         />
       ) : (
         <>
@@ -273,33 +284,49 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   )
 }
 
-type DebriefProps = { s: learn.LearnState; options: StudyOptions; plain?: boolean; onContinue: () => void; onUndo: () => void }
+type DebriefProps = {
+  s: learn.LearnState
+  options: StudyOptions
+  codeMode: boolean
+  tallies: Record<number, TestTally>
+  onContinue: () => void
+  onUndo: () => void
+}
 
-// Shown when a group is done or a card is carried: every card of the group with its misses.
-function Debrief({ s, options, plain = false, onContinue, onUndo }: DebriefProps) {
-  const rows = learn.groupSummary(s)
-  const firstTry = rows.filter((r) => r.misses === 0).length
+// Shown when a group is done or a card is carried: the scorecard of the group.
+// Each card has one row, with its misses and the time over every pass.
+function Debrief({ s, options, codeMode, tallies, onContinue, onUndo }: DebriefProps) {
+  const group = learn.groupSummary(s)
+  const firstTry = group.filter((r) => r.misses === 0).length
+  const times = timeByCard(s.results)
   const next = s.carry
-    ? `"${sideText(s.carry, options.front).text || '(empty)'}" missed its second chance. It moves to the end of the next group.`
+    ? `"${cardLabel(sideText(s.carry, options.front).text)}" missed its second chance. It moves to the end of the next group.`
     : s.remaining.length === 0
       ? 'That was the last group.'
       : 'Continue to the next group.'
 
+  const rows: ScoreRow[] = group.map(({ card, misses }) => ({
+    key: card.id,
+    label: cardLabel(sideText(card, options.front).text),
+    result:
+      misses === 0 ? <span className="text-ok">{'\u2713'} First try</span> : <span className="text-miss">{'\u2715'} Missed {misses === 1 ? 'once' : `${misses} times`}</span>,
+    ms: times.get(card.id) ?? null,
+    tests: tallies[card.id] ?? null,
+  }))
+  const time = timeOf(rows)
+  const tests = testsPassed(rows.map((r) => r.tests))
+  const stats = [
+    { value: `${firstTry} of ${rows.length}`, label: 'on the first try' },
+    { value: String(s.passes.length), label: s.passes.length === 1 ? 'pass' : 'passes' },
+    { value: time.count ? formatClock(time.total) : 'none', label: 'time on cards' },
+    ...(codeMode ? [{ value: tests.ran ? `${tests.passed} of ${tests.ran}` : 'none', label: 'cards run with all tests passed' }] : []),
+  ]
+
   return (
-    <div className={plain ? '' : 'rounded-card border border-line bg-surface p-8 shadow-card motion-safe:animate-pop-in'}>
-      <h2 className="mb-1 text-center text-xl font-semibold">Group {s.groupIndex + 1} done</h2>
-      <p className="mb-6 text-center text-muted">
-        {firstTry} of {rows.length} on the first try, {s.passes.length} {s.passes.length === 1 ? 'pass' : 'passes'}. {next}
-      </p>
-      <ul className="mb-6 space-y-1">
-        {rows.map(({ card, misses }) => (
-          <li key={card.id} className="flex items-center gap-3 text-sm">
-            <span className={misses === 0 ? 'text-ok' : 'text-bad'}>{misses === 0 ? '\u2713' : '\u2715'}</span>
-            <span className="truncate">{sideText(card, options.front).text || '(empty)'}</span>
-            {misses > 0 && <span className="text-xs text-muted">missed {misses === 1 ? 'once' : `${misses} times`}</span>}
-          </li>
-        ))}
-      </ul>
+    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card motion-safe:animate-pop-in'}>
+      <h2 className="text-xl font-semibold">Group {s.groupIndex + 1} scorecard</h2>
+      <Scorecard stats={stats} rows={rows} showTests={codeMode} />
+      <p className="mb-4 text-muted">{next}</p>
       <div className="flex flex-col items-center gap-2">
         <PrimaryButton onClick={onContinue}>Continue</PrimaryButton>
         <span className="text-xs text-muted">or press Space</span>

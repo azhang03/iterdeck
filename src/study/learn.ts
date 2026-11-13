@@ -1,5 +1,5 @@
 import type { Card } from '../api.ts'
-import type { Result } from './flashcards.ts'
+import { result, type Result } from './flashcards.ts'
 import { deckFor, isStudyOptions, type StudyOptions } from './options.ts'
 
 // Learn mode: the deck is split into groups of n. A group is one growing queue:
@@ -87,10 +87,10 @@ function passMissed(s: LearnState): Card[] {
 // Records the result. When the pass ends: no misses, the group is done (debrief);
 // one miss, a solo pass, or the debrief with a carry if the solo pass was missed;
 // more misses, the next pass over them starts at once.
-export function sort(s: LearnState, checked: boolean): LearnState {
+export function sort(s: LearnState, checked: boolean, ms?: number): LearnState {
   const card = current(s)
   if (!card) return s
-  const next: LearnState = { ...s, index: s.index + 1, flipped: false, results: [...s.results, { cardId: card.id, checked }] }
+  const next: LearnState = { ...s, index: s.index + 1, flipped: false, results: [...s.results, result(card.id, checked, ms)] }
   if (next.index < next.queue.length) return next
   const miss = passMissed(next)
   if (miss.length === 0) return { ...next, phase: 'debrief' }

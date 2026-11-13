@@ -39,6 +39,18 @@ describe('sort and flip', () => {
     expect(s.results).toEqual([{ cardId: 1, checked: true }])
   })
 
+  it('keeps the time of a sort with its result, and through a snapshot', () => {
+    let s = start(deck)
+    s = sort(s, true, 61234.4)
+    s = sort(s, false)
+    expect(s.results).toEqual([
+      { cardId: 1, checked: true, ms: 61234 },
+      { cardId: 2, checked: false },
+    ])
+    const back = resume(deck, JSON.parse(JSON.stringify(snapshot(s, DEFAULT_OPTIONS))))
+    expect(back?.state.results).toEqual(s.results)
+  })
+
   it('does nothing after the round is over', () => {
     let s = start(deck.slice(0, 1))
     s = sort(s, false)

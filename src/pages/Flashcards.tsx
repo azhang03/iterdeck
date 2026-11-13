@@ -8,18 +8,21 @@ import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.t
 import OptionsPanel from '../components/OptionsPanel.tsx'
 import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
+import Scorecard, { type ScoreRow } from '../components/Scorecard.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { formatClock } from '../study/clock.ts'
 import * as fc from '../study/flashcards.ts'
-import { deckFor, type StudyOptions } from '../study/options.ts'
+import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
+import { cardLabel, savedTallies, testsPassed, timeOf } from '../study/scorecard.ts'
 
 export default function Flashcards() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'flashcards', fc.resume)
-  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
 
@@ -64,6 +67,7 @@ export default function Flashcards() {
           deck={deck}
           initial={initial}
           initialElapsedMs={initialElapsedMs}
+          initialSaved={initialSaved}
           options={options}
           paused={optionsOpen}
           progress={progress}
@@ -101,6 +105,7 @@ type SessionProps = {
   deck: Card[]
   initial: fc.FlashcardsState | null
   initialElapsedMs: number
+  initialSaved: unknown
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
@@ -109,13 +114,18 @@ type SessionProps = {
   code: CodeState
 }
 
-function Session({ set, deck, initial, initialElapsedMs, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? fc.start(deck))
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
   const over = fc.roundOver(s)
   const codeMode = set.code_mode === 1
   const { target: motionTarget, play } = useStudyMotion(codeMode)
+  // Names the card on screen and its place in the session; null at a round summary.
+  const cardKey = !over && card ? `${s.round}-${s.index}-${card.id}` : null
+  const cardTime = useCardTime(cardKey)
+  // The last test run of each card, for the scorecard. Saved with the session; a new session starts with none.
+  const [tallies, setTallies] = useState(() => savedTallies(initialSaved))
 
   // Stats calls go out one after another, so a sort and its undo cannot arrive out of
   // order. A sort that failed is remembered; its undo is not sent.
@@ -139,7 +149,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
     if (!card) return
     play({ kind: 'next', checked })
     record(s.index, card.id, checked)
-    setS(fc.sort(s, checked))
+    setS(fc.sort(s, checked, cardTime()))
   }
 
   function undo() {
@@ -163,13 +173,13 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   }
 
   // The position is saved after every change, and dropped when every card is checked.
-  const snapshot = useMemo(() => (fc.done(s) ? null : fc.snapshot(s, options)), [s, options])
+  const snapshot = useMemo(() => (fc.done(s) ? null : { ...fc.snapshot(s, options), tallies }), [s, options, tallies])
   const session = useSessionClock(progress, snapshot, initialElapsedMs)
 
   // The card clock starts again for each card. No card is on screen at a round summary.
   const clocks = (
     <>
-      {!over && card && <Clock key={`${s.round}-${s.index}-${card.id}`} label="Card" />}
+      {cardKey && <Clock key={cardKey} label="Card" />}
       <Clock label="Session" read={session.read} running={session.running} />
     </>
   )
@@ -210,12 +220,27 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
 
   const sum = fc.summary(s)
 
+  // The scorecard of the round: one row for each sorted card, in the order of the round.
+  const rows: ScoreRow[] = s.results.map((r, i) => ({
+    key: i,
+    label: cardLabel(sideText(s.queue[i], options.front).text),
+    result: r.checked ? <span className="text-ok">{'\u2713'} Checked</span> : <span className="text-miss">{'\u2715'} Missed</span>,
+    ms: r.ms ?? null,
+    tests: tallies[r.cardId] ?? null,
+  }))
+  const time = timeOf(rows)
+  const tests = testsPassed(rows.map((r) => r.tests))
+  const stats = [
+    { value: `${sum.checked} of ${sum.total}`, label: `checked (${sum.percent}%)` },
+    { value: time.count ? formatClock(time.total) : 'none', label: 'time on cards' },
+    { value: time.count ? formatClock(time.total / time.count) : 'none', label: 'average per card' },
+    ...(codeMode ? [{ value: tests.ran ? `${tests.passed} of ${tests.ran}` : 'none', label: 'cards run with all tests passed' }] : []),
+  ]
+
   const summary = (
     <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card motion-safe:animate-pop-in'}>
-      <h2 className="mb-2 text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} done`}</h2>
-      <p className="mb-6 text-muted">
-        {sum.checked} checked, {sum.missed} missed, {sum.percent}% right.
-      </p>
+      <h2 className="text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} scorecard`}</h2>
+      <Scorecard stats={stats} rows={rows} showTests={codeMode} />
       {fc.done(s) ? (
         <div className="flex justify-center gap-3">
           <PrimaryButton onClick={onRestart}>Restart</PrimaryButton>
@@ -256,6 +281,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
           panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={flip} />}
           footer={over ? undefined : controls}
           panelRef={motionTarget}
+          onTested={(cardId, tally) => setTallies((t) => ({ ...t, [cardId]: tally }))}
         />
       ) : over ? (
         summary

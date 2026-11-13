@@ -5,7 +5,8 @@ import { deckFor, isStudyOptions, type StudyOptions } from './options.ts'
 // until none are missed. Pure functions over a state object; the page renders
 // the state and calls the API on the side.
 
-export type Result = { cardId: number; checked: boolean }
+// `ms` is the time the card was on screen before the sort; a result from before the scorecard has none.
+export type Result = { cardId: number; checked: boolean; ms?: number }
 
 export type FlashcardsState = {
   deck: Card[] // the cards in play for this session, in their original order
@@ -35,10 +36,14 @@ export function flip(s: FlashcardsState): FlashcardsState {
   return { ...s, flipped: !s.flipped }
 }
 
-export function sort(s: FlashcardsState, checked: boolean): FlashcardsState {
+export function sort(s: FlashcardsState, checked: boolean, ms?: number): FlashcardsState {
   const card = current(s)
   if (!card) return s
-  return { ...s, index: s.index + 1, flipped: false, results: [...s.results, { cardId: card.id, checked }] }
+  return { ...s, index: s.index + 1, flipped: false, results: [...s.results, result(card.id, checked, ms)] }
+}
+
+export function result(cardId: number, checked: boolean, ms?: number): Result {
+  return ms === undefined ? { cardId, checked } : { cardId, checked, ms: Math.round(ms) }
 }
 
 // Goes back one card. Returns the result that was undone, so the page can reverse the stats update.

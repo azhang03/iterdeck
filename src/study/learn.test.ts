@@ -56,6 +56,19 @@ function playGroup(s: LearnState, miss: number[] = []): LearnState {
   return s
 }
 
+describe('time of a sort', () => {
+  it('keeps the time with the result', () => {
+    const deck = [1, 2, 3].map(card)
+    let s = start(deck, 3)
+    s = sort(s, true, 1500)
+    s = sort(s, false)
+    expect(s.results).toEqual([
+      { cardId: 1, checked: true, ms: 1500 },
+      { cardId: 2, checked: false },
+    ])
+  })
+})
+
 describe('groups', () => {
   it('splits 15 cards with n 7 into groups of 7, 7, 1 and ends done', () => {
     let s = start(deck(15), 7)
