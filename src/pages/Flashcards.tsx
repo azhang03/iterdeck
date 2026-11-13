@@ -11,7 +11,7 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useSessionClock, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as fc from '../study/flashcards.ts'
 import { deckFor, type StudyOptions } from '../study/options.ts'
 
@@ -115,6 +115,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const card = fc.current(s)
   const over = fc.roundOver(s)
   const codeMode = set.code_mode === 1
+  const { target: motionTarget, play } = useStudyMotion(codeMode)
 
   // Stats calls go out one after another, so a sort and its undo cannot arrive out of
   // order. A sort that failed is remembered; its undo is not sent.
@@ -136,6 +137,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
 
   function sort(checked: boolean) {
     if (!card) return
+    play({ kind: 'next', checked })
     record(s.index, card.id, checked)
     setS(fc.sort(s, checked))
   }
@@ -143,8 +145,21 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   function undo() {
     const { state, undone } = fc.undo(s)
     if (!undone) return
+    play({ kind: 'undo', checked: undone.checked })
     record(state.index, undone.cardId, undone.checked, true)
     setS(state)
+  }
+
+  function flip() {
+    if (over) return
+    play({ kind: 'flip' })
+    setS(fc.flip)
+  }
+
+  // Another card comes on screen with no sort: a shuffle, or the next round.
+  function swap(change: (state: fc.FlashcardsState) => fc.FlashcardsState) {
+    play({ kind: 'swap' })
+    setS(change)
   }
 
   // The position is saved after every change, and dropped when every card is checked.
@@ -169,8 +184,8 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
         const t = e.target
         if (t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return
         e.preventDefault()
-        if (over) setS(fc.nextRound)
-        else setS(fc.flip)
+        if (over) swap(fc.nextRound)
+        else flip()
       } else if (e.key === '1' || e.key === '2') {
         // Also stops the digit from reaching the editor when it still has DOM focus.
         e.preventDefault()
@@ -183,7 +198,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
 
   const actions = (
     <>
-      <button type="button" onClick={() => setS(fc.shuffle)} disabled={over} className="rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50">
+      <button type="button" onClick={() => swap(fc.shuffle)} disabled={over} className="rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50">
         Shuffle
       </button>
       <button type="button" onClick={onOpenOptions} className="rounded px-3 py-1 text-sm hover:bg-hover">
@@ -195,7 +210,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const sum = fc.summary(s)
 
   const summary = (
-    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card'}>
+    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card motion-safe:animate-pop-in'}>
       <h2 className="mb-2 text-xl font-semibold">{fc.done(s) ? 'All cards checked' : `Round ${s.round} done`}</h2>
       <p className="mb-6 text-muted">
         {sum.checked} checked, {sum.missed} missed, {sum.percent}% right.
@@ -209,7 +224,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
-          <PrimaryButton onClick={() => setS(fc.nextRound)}>Continue with the {sum.missed} missed</PrimaryButton>
+          <PrimaryButton onClick={() => swap(fc.nextRound)}>Continue with the {sum.missed} missed</PrimaryButton>
           <span className="text-xs text-muted">or press Space</span>
         </div>
       )}
@@ -237,15 +252,16 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
           docs={code.docs}
           onCodeChange={code.saveCode}
           panelKey={over ? `over-${s.round}` : `${card?.id}-${s.flipped}`}
-          panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />}
+          panel={over ? summary : card && <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={flip} />}
           footer={over ? undefined : controls}
+          panelRef={motionTarget}
         />
       ) : over ? (
         summary
       ) : (
         card && (
           <>
-            <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(fc.flip)} />
+            <StudyCard ref={motionTarget} card={card} front={options.front} flipped={s.flipped} onFlip={flip} />
             {controls}
           </>
         )

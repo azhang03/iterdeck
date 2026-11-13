@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Link } from 'react-router-dom'
 import type { Card, SetWithCards } from '../api.ts'
 import {
@@ -27,6 +27,7 @@ type Props = {
   panelKey: string // changes with the panel content, so the scroll position resets
   panel: ReactNode // the description panel content (the card, a summary, or a debrief)
   footer?: ReactNode // sort buttons, in a bar at the bottom of the panel
+  panelRef?: Ref<HTMLElement> // the description panel, for the study motion
 }
 
 type Loaded = { tables: Table[]; textFallback: string[]; failed: { name: string; message: string }[] }
@@ -36,7 +37,7 @@ const toolButton = 'rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50
 // Code mode: the card as a problem description on the left, a code editor with
 // a run toolbar and an output panel on the right. The side used last (by mouse
 // or keyboard focus) gets the keys; an outline marks it.
-export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, docs, onCodeChange, panelKey, panel, footer }: Props) {
+export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, docs, onCodeChange, panelKey, panel, footer, panelRef }: Props) {
   const [clearToken, setClearToken] = useState(0)
   const runner = useRef<Runner | null>(null)
   const [status, setStatus] = useState<PrepareStatus>('idle')
@@ -45,6 +46,8 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   const [busy, setBusy] = useState(false)
   const [output, setOutput] = useState<RunResult | null>(null)
   const [verdict, setVerdict] = useState<CheckResult | TestResult[] | null>(null)
+  // Counts the test runs, so the Result tab can tell a new run from one it has shown.
+  const [testRun, setTestRun] = useState(0)
   const [tab, setTab] = useState<OutputTab>('output')
   const [diagnostics, setDiagnostics] = useState<RunError | null>(null)
   // The editor keeps showing the last card while a summary is on screen.
@@ -141,6 +144,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
       const result = card.tests.trim() === '' ? [] : await r.test(codeOf(card.id), card)
       if (activeId.current !== card.id) return
       setVerdict(result)
+      setTestRun((n) => n + 1)
       setTab('result')
     } finally {
       setBusy(false)
@@ -182,12 +186,13 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
   return (
     <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
       <section
+        ref={panelRef}
         aria-label="Description"
         onMouseDownCapture={() => onFocusSide('card')}
         onFocusCapture={() => onFocusSide('card')}
         className={outline('card')}
       >
-        <div key={panelKey} className="min-h-0 flex-1 overflow-y-auto p-6">
+        <div key={panelKey} data-motion-content className="min-h-0 flex-1 overflow-y-auto p-6">
           {set.language === 'postgresql' && loaded && <TablesSection {...loaded} />}
           {panel}
         </div>
@@ -243,7 +248,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
                 diagnostics={diagnostics}
               />
             </div>
-            <OutputPanel setId={set.id} language={set.language} tab={tab} onTab={setTab} output={output} verdict={verdict} />
+            <OutputPanel setId={set.id} language={set.language} tab={tab} onTab={setTab} output={output} verdict={verdict} testRun={testRun} />
           </>
         )}
       </section>

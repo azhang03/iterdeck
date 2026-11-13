@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api, type Card, type SetWithCards, type StudyMode } from './api.ts'
 import { readWatch, runWatch, savedElapsedMs, withElapsed, type Watch } from './study/clock.ts'
+import { enter, leave, type Move } from './study/motion.ts'
 import { DEFAULT_OPTIONS, type StudyOptions } from './study/options.ts'
 
 export type Async<T> = { data: T | null; error: string | null; loading: boolean; reload: () => void }
@@ -215,6 +216,40 @@ export function useSessionClock(progress: ProgressSaver, snapshot: object | null
   }, [])
 
   return useMemo(() => ({ read, running }), [read, running])
+}
+
+export type StudyMotion = {
+  // The ref of the card (plain layout) or of the description panel (code mode).
+  target: (el: HTMLElement | null) => void
+  // Call it in the handler of an action, before the state changes: the old card
+  // leaves from where it is, then the new card comes in.
+  play: (move: Move) => void
+}
+
+// The motion of a study page (src/study/motion.ts). It never delays the state.
+export function useStudyMotion(codeMode: boolean): StudyMotion {
+  const element = useRef<HTMLElement | null>(null)
+  const target = useCallback((el: HTMLElement | null) => {
+    element.current = el
+  }, [])
+  const [move, setMove] = useState<Move>({ kind: 'start' })
+  const entering = useRef<Animation | null>(null)
+
+  // Runs after the page shows the new card.
+  useLayoutEffect(() => {
+    const el = element.current
+    entering.current?.cancel()
+    entering.current = el ? enter(codeMode ? (el.querySelector<HTMLElement>('[data-motion-content]') ?? el) : el, move, codeMode) : null
+  }, [move, codeMode])
+
+  const play = useCallback(
+    (next: Move) => {
+      if (element.current) leave(element.current, next, codeMode)
+      setMove(next)
+    },
+    [codeMode],
+  )
+  return useMemo(() => ({ target, play }), [target, play])
 }
 
 type Resume<S> = (cards: Card[], saved: unknown) => { state: S; options: StudyOptions } | null

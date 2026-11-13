@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Language } from '../api.ts'
 import type { CheckResult, RunResult, Rows, TestResult } from '../run/runner.ts'
@@ -12,18 +12,41 @@ type Props = {
   onTab: (tab: OutputTab) => void
   output: RunResult | null
   verdict: CheckResult | TestResult[] | null
+  // The number of the test run that `verdict` is from. A new number shows the cases one by one.
+  testRun: number
 }
 
 const MAX_ROWS = 200
+// The time between two test cases when a new run shows.
+const CASE_STEP_MS = 110
 
 // Under the editor: the last run's rows, text, or error, and the last Check or
 // Run tests verdict. Fixed height; Hide leaves only the tab row.
-export default function OutputPanel({ setId, language, tab, onTab, output, verdict }: Props) {
+export default function OutputPanel({ setId, language, tab, onTab, output, verdict, testRun }: Props) {
   const [open, setOpen] = useState(true)
+  const root = useRef<HTMLDivElement>(null)
+  // The run whose cases have come in. A later look at the Result tab shows them at once.
+  const [shownRun, setShownRun] = useState(testRun)
+
+  useEffect(() => {
+    if (!Array.isArray(verdict) || verdict.length === 0) return
+    const whole = verdict.length * CASE_STEP_MS
+    const done = setTimeout(() => setShownRun(testRun), whole + 300)
+    if (verdict.every((r) => r.ok)) {
+      // All passed: the panel glows green one time, after the last case.
+      const color = getComputedStyle(document.documentElement).getPropertyValue('--color-ok').trim()
+      root.current?.animate([{ boxShadow: `inset 0 0 0 2px ${color}, inset 0 0 40px -12px ${color}` }, { boxShadow: 'inset 0 0 0 0 transparent' }], {
+        duration: 1100,
+        delay: whole,
+        easing: 'ease-out',
+      })
+    }
+    return () => clearTimeout(done)
+  }, [verdict, testRun])
   const tabClass = (t: OutputTab) =>
     `rounded px-2 py-0.5 text-xs ${tab === t ? 'bg-track font-medium' : 'text-muted hover:bg-hover'}`
   return (
-    <div className={`shrink-0 border-t border-line ${open ? 'h-56' : ''} flex flex-col`}>
+    <div ref={root} className={`shrink-0 border-t border-line ${open ? 'h-56' : ''} flex flex-col`}>
       <div className="flex shrink-0 items-center gap-1 border-b border-line px-3 py-1">
         <button type="button" onClick={() => onTab('output')} className={tabClass('output')}>
           Output
@@ -42,7 +65,7 @@ export default function OutputPanel({ setId, language, tab, onTab, output, verdi
       </div>
       {open && (
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2 text-sm" aria-label={tab === 'output' ? 'Output' : 'Result'}>
-          {tab === 'output' ? <Output output={output} /> : <Result setId={setId} language={language} verdict={verdict} />}
+          {tab === 'output' ? <Output output={output} /> : <Result setId={setId} language={language} verdict={verdict} testRun={testRun} staged={shownRun !== testRun} />}
         </div>
       )}
     </div>
@@ -112,7 +135,9 @@ function cellText(v: unknown): string {
   return String(v)
 }
 
-function Result({ setId, language, verdict }: { setId: number; language: Language; verdict: CheckResult | TestResult[] | null }) {
+type ResultProps = { setId: number; language: Language; verdict: CheckResult | TestResult[] | null; testRun: number; staged: boolean }
+
+function Result({ setId, language, verdict, testRun, staged }: ResultProps) {
   if (verdict === null) {
     return (
       <p className="text-muted">
@@ -120,7 +145,8 @@ function Result({ setId, language, verdict }: { setId: number; language: Languag
       </p>
     )
   }
-  if (Array.isArray(verdict)) return <TestList setId={setId} results={verdict} />
+  // The key starts the entrance again for each run.
+  if (Array.isArray(verdict)) return <TestList key={testRun} setId={setId} results={verdict} staged={staged} />
   return (
     <>
       <p className={`font-medium ${verdict.ok ? 'text-ok' : 'text-bad'}`}>{verdict.message}</p>
@@ -140,7 +166,8 @@ function Result({ setId, language, verdict }: { setId: number; language: Languag
   )
 }
 
-function TestList({ setId, results }: { setId: number; results: TestResult[] }) {
+// `staged` shows the cases one by one, then the count.
+function TestList({ setId, results, staged }: { setId: number; results: TestResult[]; staged: boolean }) {
   if (results.length === 0) {
     return (
       <p className="text-muted">
@@ -154,14 +181,16 @@ function TestList({ setId, results }: { setId: number; results: TestResult[] }) 
   }
   const passed = results.filter((r) => r.ok).length
   const all = passed === results.length
+  const entrance = staged ? 'motion-safe:animate-case-in' : ''
+  const delay = (step: number) => (staged ? { animationDelay: `${step * CASE_STEP_MS}ms` } : undefined)
   return (
     <>
-      <p className={`font-medium ${all ? 'text-ok' : 'text-bad'}`}>
+      <p style={delay(results.length)} className={`font-medium ${all ? 'text-ok' : 'text-bad'} ${entrance}`}>
         {passed} of {results.length} passed
       </p>
       <ul className="mt-2 space-y-1">
         {results.map((r, i) => (
-          <li key={i}>
+          <li key={i} style={delay(i)} className={entrance}>
             <span className={r.ok ? 'text-ok' : 'text-bad'} aria-label={r.ok ? 'passed' : 'failed'}>
               {r.ok ? '\u2713' : '\u2717'}
             </span>{' '}
