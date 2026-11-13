@@ -1,6 +1,6 @@
 import { python } from '@codemirror/lang-python'
 import { PostgreSQL, sql } from '@codemirror/lang-sql'
-import { indentWithTab } from '@codemirror/commands'
+import { indentWithTab, isolateHistory } from '@codemirror/commands'
 import { indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { setDiagnostics } from '@codemirror/lint'
 import { Compartment, EditorState, Prec } from '@codemirror/state'
@@ -120,12 +120,17 @@ export default function CodeEditor({ language, cardId, docs, onChange, onRun, on
     view.current.dispatch({ effects: langCompartment.reconfigure(languageExtension(language)) })
   }, [language, langCompartment])
 
-  // A replacement is done one time. A view that is built again does not repeat the last one.
+  // Each id is applied one time, also when the effect runs again (StrictMode) or the
+  // editor mounts again under the same replacement.
   const replaced = useRef(replacement?.id ?? 0)
   useEffect(() => {
     if (!replacement || replacement.id === replaced.current || !view.current) return
     replaced.current = replacement.id
-    view.current.dispatch({ changes: { from: 0, to: view.current.state.doc.length, insert: replacement.text } })
+    // Its own undo step: it must not join the keys typed just before it.
+    view.current.dispatch({
+      changes: { from: 0, to: view.current.state.doc.length, insert: replacement.text },
+      annotations: isolateHistory.of('full'),
+    })
   }, [replacement])
 
   useEffect(() => {
