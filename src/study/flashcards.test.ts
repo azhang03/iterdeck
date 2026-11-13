@@ -47,8 +47,11 @@ describe('sort and flip', () => {
       { cardId: 1, checked: true, ms: 61234 },
       { cardId: 2, checked: false },
     ])
-    const back = resume(deck, JSON.parse(JSON.stringify(snapshot(s, DEFAULT_OPTIONS))))
-    expect(back?.state.results).toEqual(s.results)
+    const saved = JSON.parse(JSON.stringify(snapshot(s, DEFAULT_OPTIONS)))
+    expect(resume(deck, saved)?.state.results).toEqual(s.results)
+    // A time that is not a number makes the snapshot unusable.
+    saved.results[0].ms = 'long'
+    expect(resume(deck, saved)).toBeNull()
   })
 
   it('does nothing after the round is over', () => {

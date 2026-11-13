@@ -104,6 +104,12 @@ export function snapshot(s: FlashcardsState, options: StudyOptions): Snapshot {
   return { options, queue: s.queue.map((c) => c.id), index: s.index, results: s.results, round: s.round }
 }
 
+function isResult(v: unknown): v is Result {
+  if (typeof v !== 'object' || v === null || !('cardId' in v) || !('checked' in v)) return false
+  const timed = !('ms' in v) || typeof v.ms === 'number'
+  return typeof v.cardId === 'number' && typeof v.checked === 'boolean' && timed
+}
+
 function isSnapshot(v: unknown): v is Snapshot {
   if (typeof v !== 'object' || v === null) return false
   const o = v as Record<string, unknown>
@@ -113,7 +119,7 @@ function isSnapshot(v: unknown): v is Snapshot {
     o.queue.every((x) => typeof x === 'number') &&
     typeof o.index === 'number' &&
     Array.isArray(o.results) &&
-    o.results.every((r) => typeof r === 'object' && r !== null && typeof (r as Result).cardId === 'number' && typeof (r as Result).checked === 'boolean') &&
+    o.results.every(isResult) &&
     typeof o.round === 'number'
   )
 }

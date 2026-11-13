@@ -20,6 +20,9 @@ type Props = {
   showTests: boolean
 }
 
+// The rows after this one come in together, so a long round does not make the user wait.
+const MAX_STAGGERED = 12
+
 // The table at the end of a round or a group: each card with its result, the
 // time on it, and its tests. The rows come in one by one.
 export default function Scorecard({ stats, rows, showTests }: Props) {
@@ -27,9 +30,10 @@ export default function Scorecard({ stats, rows, showTests }: Props) {
     <>
       <dl className="my-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
         {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-line bg-page px-2 py-2.5 text-center">
-            <dd className="text-xl font-semibold tabular-nums">{s.value}</dd>
+          // The name comes first for a screen reader; on screen the value is on top.
+          <div key={s.label} className="flex flex-col-reverse rounded-lg border border-line bg-page px-2 py-2.5 text-center">
             <dt className="text-xs text-muted">{s.label}</dt>
+            <dd className="text-xl font-semibold tabular-nums">{s.value}</dd>
           </div>
         ))}
       </dl>
@@ -44,7 +48,7 @@ export default function Scorecard({ stats, rows, showTests }: Props) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.key} className="motion-safe:animate-case-in" style={{ animationDelay: `${i * 55}ms` }}>
+            <tr key={r.key} className="motion-safe:animate-case-in" style={{ animationDelay: `${Math.min(i, MAX_STAGGERED) * 55}ms` }}>
               <td className="w-full max-w-0 truncate border-b border-line px-2 py-2" title={r.label}>
                 {r.label}
               </td>

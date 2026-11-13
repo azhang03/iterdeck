@@ -144,10 +144,11 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
     setBusy(true)
     try {
       const result = card.tests.trim() === '' ? [] : await r.test(codeOf(card.id), card)
+      // The tally belongs to the card of the run, also when the user has moved on.
+      if (result.length > 0) onTested?.(card.id, { passed: result.filter((t) => t.ok).length, total: result.length })
       if (activeId.current !== card.id) return
       setVerdict(result)
       setTestRun((n) => n + 1)
-      if (result.length > 0) onTested?.(card.id, { passed: result.filter((r) => r.ok).length, total: result.length })
       setTab('result')
     } finally {
       setBusy(false)

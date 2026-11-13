@@ -7,12 +7,12 @@ export type TestTally = { passed: number; total: number }
 const HEADING = /^#{1,6}\s+/
 
 // Removes the markdown marks of one line: heading marks, bold and italic stars,
-// code ticks, and the URL of a link. Underscores stay: in these cards they are
+// code ticks, and the URL of a link or an image (the text or the alt text stays). Underscores stay: in these cards they are
 // part of names such as two_sum far more often than they are emphasis.
 function plain(line: string): string {
   return line
     .replace(HEADING, '')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\*\*|`/g, '')
     .replace(/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/g, '$1')
     .trim()

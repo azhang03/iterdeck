@@ -10,6 +10,7 @@ describe('cardLabel', () => {
   it('removes the markdown marks', () => {
     expect(cardLabel('**Q005 Coin-flip board game**')).toBe('Q005 Coin-flip board game')
     expect(cardLabel('# Title with `code` and a [link](https://example.com)')).toBe('Title with code and a link')
+    expect(cardLabel('![diagram](x.png) of a tree')).toBe('diagram of a tree')
     expect(cardLabel('an *italic* word, 3 * 4, and __init__')).toBe('an italic word, 3 * 4, and __init__')
   })
 
