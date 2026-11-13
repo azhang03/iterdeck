@@ -32,16 +32,20 @@ export default function OutputPanel({ setId, language, tab, onTab, output, verdi
     if (!Array.isArray(verdict) || verdict.length === 0) return
     const whole = verdict.length * CASE_STEP_MS
     const done = setTimeout(() => setShownRun(testRun), whole + 300)
-    if (verdict.every((r) => r.ok)) {
-      // All passed: the panel glows green one time, after the last case.
-      const color = getComputedStyle(document.documentElement).getPropertyValue('--color-ok').trim()
-      root.current?.animate([{ boxShadow: `inset 0 0 0 2px ${color}, inset 0 0 40px -12px ${color}` }, { boxShadow: 'inset 0 0 0 0 transparent' }], {
-        duration: 1100,
-        delay: whole,
-        easing: 'ease-out',
-      })
+    // All passed: the panel glows green one time, after the last case.
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--color-ok').trim()
+    const glow = verdict.every((r) => r.ok)
+      ? root.current?.animate([{ boxShadow: `inset 0 0 0 2px ${color}, inset 0 0 40px -12px ${color}` }, { boxShadow: 'inset 0 0 0 0 transparent' }], {
+          duration: 1100,
+          delay: whole,
+          easing: 'ease-out',
+        })
+      : undefined
+    // A new run must not show the glow of the run before it.
+    return () => {
+      clearTimeout(done)
+      glow?.cancel()
     }
-    return () => clearTimeout(done)
   }, [verdict, testRun])
   const tabClass = (t: OutputTab) =>
     `rounded px-2 py-0.5 text-xs ${tab === t ? 'bg-track font-medium' : 'text-muted hover:bg-hover'}`

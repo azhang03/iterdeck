@@ -19,8 +19,12 @@ function calm(): boolean {
   return matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+const GLOW_ID = 'sort-glow'
+
 // The glow of a sort: green for checked, amber for missed, over the element's own shadow.
 function glowOver(el: HTMLElement, checked: boolean): { base: string; lit: string } {
+  // A glow that still runs on this element would be read as its own shadow. Stop it first.
+  for (const a of el.getAnimations()) if (a.id === GLOW_ID) a.cancel()
   const color = getComputedStyle(document.documentElement).getPropertyValue(checked ? '--color-ok' : '--color-miss').trim()
   const own = getComputedStyle(el).boxShadow
   const base = own === 'none' ? '0 0 0 0 transparent' : own
@@ -74,7 +78,7 @@ export function leave(el: HTMLElement, move: Move, codeMode: boolean) {
   const { base, lit } = glowOver(el, checked)
   if (codeMode || still) {
     // The panel stays and glows. With reduced motion a plain card does the same.
-    el.animate([{ boxShadow: base }, { boxShadow: lit, offset: 0.3 }, { boxShadow: lit, offset: 0.6 }, { boxShadow: base }], { duration: 620, easing: 'ease-out' })
+    el.animate([{ boxShadow: base }, { boxShadow: lit, offset: 0.3 }, { boxShadow: lit, offset: 0.6 }, { boxShadow: base }], { id: GLOW_ID, duration: 620, easing: 'ease-out' })
     return
   }
   // A plain card is thrown: right for checked, left for missed, after a small wind-up the other way.

@@ -244,6 +244,9 @@ export function useStudyMotion(codeMode: boolean): StudyMotion {
 
   const play = useCallback(
     (next: Move) => {
+      // A card that is still coming in is measured where it ends, not part way.
+      entering.current?.cancel()
+      entering.current = null
       if (element.current) leave(element.current, next, codeMode)
       setMove(next)
     },

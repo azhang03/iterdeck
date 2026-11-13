@@ -184,8 +184,9 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
         const t = e.target
         if (t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return
         e.preventDefault()
-        if (over) swap(fc.nextRound)
-        else flip()
+        // Nothing follows the last summary.
+        if (!over) flip()
+        else if (!fc.done(s)) swap(fc.nextRound)
       } else if (e.key === '1' || e.key === '2') {
         // Also stops the digit from reaching the editor when it still has DOM focus.
         e.preventDefault()
