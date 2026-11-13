@@ -218,6 +218,18 @@ export function useSessionClock(progress: ProgressSaver, snapshot: object | null
   return useMemo(() => ({ read, running }), [read, running])
 }
 
+// The time on the card on screen, for the result of a sort. It starts again when
+// the key changes; null means no card is on screen. The card clock in the header
+// counts from its own mount, which is the same moment.
+export function useCardTime(cardKey: string | null): () => number {
+  const [first] = useState(() => Date.now())
+  const startedAt = useRef(first)
+  useEffect(() => {
+    startedAt.current = Date.now()
+  }, [cardKey])
+  return useCallback(() => Date.now() - startedAt.current, [])
+}
+
 export type StudyMotion = {
   // The ref of the card (plain layout) or of the description panel (code mode).
   target: (el: HTMLElement | null) => void
@@ -266,6 +278,8 @@ export type StudyPage<S> = {
   initial: S | null
   // The session time the saved session had; zero for a fresh session.
   initialElapsedMs: number
+  // The saved snapshot as it was stored, when the session continues from it; null for a fresh session.
+  initialSaved: unknown
   docs: Map<number, string>
   codeSaver: CodeSaver
   progress: ProgressSaver
@@ -287,11 +301,12 @@ export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S
   const resumed = useMemo(() => (set ? resume(set.cards, set.progress[mode]) : null), [set, mode, resume])
   const options = chosen ?? resumed?.options ?? DEFAULT_OPTIONS
   const initial = sessionKey === 0 && chosen === null ? (resumed?.state ?? null) : null
-  const initialElapsedMs = initial === null ? 0 : savedElapsedMs(set?.progress[mode])
+  const initialSaved = initial === null ? null : (set?.progress[mode] ?? null)
+  const initialElapsedMs = savedElapsedMs(initialSaved)
   const restart = useCallback(() => {
     setSessionKey((k) => k + 1)
     docs.clear()
     codeSaver.discard(() => api.sets.clearCode(setId))
   }, [docs, codeSaver, setId])
-  return { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart }
+  return { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart }
 }
