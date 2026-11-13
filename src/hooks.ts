@@ -267,6 +267,27 @@ export function useStudyMotion(codeMode: boolean): StudyMotion {
   return useMemo(() => ({ target, play }), [target, play])
 }
 
+export type CardNotes = {
+  // The notes written in this visit, by card id. A card that is not here has the note it was loaded with.
+  edited: Record<number, string>
+  save: (cardId: number, note: string) => void
+}
+
+// The user's notes on the cards. A change shows at once and is saved in the
+// background; the saves go out one after another, so an older text cannot land
+// after a newer one. A failed save is dropped; the next change sends the text again.
+export function useCardNotes(): CardNotes {
+  const [edited, setEdited] = useState<Record<number, string>>({})
+  const chain = useRef(Promise.resolve())
+  const save = useCallback((cardId: number, note: string) => {
+    setEdited((notes) => ({ ...notes, [cardId]: note }))
+    chain.current = chain.current.then(async () => {
+      await api.cards.update(cardId, { note }).catch(() => {})
+    })
+  }, [])
+  return useMemo(() => ({ edited, save }), [edited, save])
+}
+
 type Resume<S> = (cards: Card[], saved: unknown) => { state: S; options: StudyOptions } | null
 
 export type StudyPage<S> = {
@@ -282,6 +303,7 @@ export type StudyPage<S> = {
   initialSaved: unknown
   docs: Map<number, string>
   codeSaver: CodeSaver
+  notes: CardNotes
   progress: ProgressSaver
   // A new session from the first card. Also clears the code written for every card.
   restart: () => void
@@ -296,6 +318,7 @@ export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S
   const [sessionKey, setSessionKey] = useState(0)
   const docs = useCodeDocs(loaded.data)
   const codeSaver = useCodeSaver()
+  const notes = useCardNotes()
   const progress = useProgressSaver(setId, mode)
   const set = loaded.data
   const resumed = useMemo(() => (set ? resume(set.cards, set.progress[mode]) : null), [set, mode, resume])
@@ -308,5 +331,5 @@ export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S
     docs.clear()
     codeSaver.discard(() => api.sets.clearCode(setId))
   }, [docs, codeSaver, setId])
-  return { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart }
+  return { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, notes, progress, restart }
 }

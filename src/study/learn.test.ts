@@ -36,6 +36,7 @@ function card(id: number): Card {
     tests: '',
     ordered: 0,
     code: '',
+    note: '',
     created_at: '',
   }
 }

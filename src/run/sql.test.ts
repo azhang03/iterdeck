@@ -46,6 +46,7 @@ function card(definition: string, ordered: 0 | 1 = 0): Card {
     tests: '',
     ordered,
     code: '',
+    note: '',
     created_at: '',
   }
 }

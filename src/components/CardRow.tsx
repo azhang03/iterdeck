@@ -95,6 +95,12 @@ export default function CardRow({ card, onChange, stat }: Props) {
           )}
         </div>
       </div>
+      {card.note && (
+        <p className="mt-3 flex gap-2 rounded bg-accent/10 px-3 py-1.5 text-sm">
+          <span className="mt-0.5 shrink-0 text-xs font-semibold tracking-wide text-accent uppercase">Note</span>
+          <span className="min-w-0 break-words whitespace-pre-wrap">{card.note}</span>
+        </p>
+      )}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
     </div>
   )

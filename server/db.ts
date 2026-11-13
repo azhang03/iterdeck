@@ -23,6 +23,7 @@ const ADDED_COLUMNS: { table: string; name: string; definition: string }[] = [
   { table: 'cards', name: 'tests', definition: "TEXT NOT NULL DEFAULT ''" },
   { table: 'cards', name: 'ordered', definition: 'INTEGER NOT NULL DEFAULT 0' },
   { table: 'cards', name: 'code', definition: "TEXT NOT NULL DEFAULT ''" },
+  { table: 'cards', name: 'note', definition: "TEXT NOT NULL DEFAULT ''" },
 ]
 
 function migrate(db: Db): void {

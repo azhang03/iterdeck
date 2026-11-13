@@ -10,9 +10,10 @@ import ProblemPanel from '../components/ProblemPanel.tsx'
 import ProgressBar from '../components/ProgressBar.tsx'
 import Scorecard, { type ScoreRow } from '../components/Scorecard.tsx'
 import SortControls from '../components/SortControls.tsx'
+import CardNote from '../components/CardNote.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useCardTime, useSessionClock, useStudyMotion, useStudyPage, type CardNotes, type ProgressSaver } from '../hooks.ts'
 import { formatClock } from '../study/clock.ts'
 import * as learn from '../study/learn.ts'
 import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
@@ -22,7 +23,7 @@ export default function Learn() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'learn', learn.resume)
-  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, initialSaved, docs, codeSaver, notes, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   // Code mode state lives here so an options change keeps the code and the active side.
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
@@ -75,6 +76,7 @@ export default function Learn() {
           onOpenOptions={() => setOptionsOpen(true)}
           onRestart={restart}
           code={{ focusSide, setFocusSide, docs, saveCode: codeSaver.save }}
+          notes={notes}
         />
       )}
       {optionsOpen && (
@@ -109,12 +111,13 @@ type SessionProps = {
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
+  notes: CardNotes
   onOpenOptions: () => void
   onRestart: () => void
   code: CodeState
 }
 
-function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, paused, progress, notes, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? learn.start(deck, options.groupSize))
   const card = learn.current(s)
   const codeMode = set.code_mode === 1
@@ -168,6 +171,8 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
     if (paused || (codeMode && code.focusSide !== 'card')) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      // A key typed in a text field (the note of the card) is text, not a study key.
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
       if (e.key === ' ') {
         const t = e.target
         if (t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return
@@ -227,6 +232,9 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
     />
   )
 
+  // The note of the card on screen. The key gives each card its own editor.
+  const note = card && <CardNote key={card.id} note={notes.edited[card.id] ?? card.note} onSave={(text) => notes.save(card.id, text)} />
+
   const solo = learn.isSolo(s) && <p className="mb-3 text-center text-sm text-muted">One more try for this card.</p>
 
   return (
@@ -263,7 +271,14 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
               )
             )
           }
-          footer={s.phase === 'round' ? controls : undefined}
+          footer={
+            s.phase === 'round' ? (
+              <>
+                <div className="mb-3">{note}</div>
+                {controls}
+              </>
+            ) : undefined
+          }
           panelRef={motionTarget}
           onTested={(cardId, tally) => setTallies((t) => ({ ...t, [cardId]: tally }))}
         />
@@ -275,6 +290,7 @@ function Session({ set, deck, initial, initialElapsedMs, initialSaved, options, 
             <>
               {solo}
               <StudyCard ref={motionTarget} card={card} front={options.front} flipped={s.flipped} onFlip={flip} />
+              <div className="mt-4">{note}</div>
               {controls}
             </>
           )}
