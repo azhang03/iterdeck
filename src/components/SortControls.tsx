@@ -8,6 +8,7 @@ export default function SortControls({ onMiss, onCheck, onUndo, canUndo }: Props
         <button
           type="button"
           onClick={onMiss}
+          data-sort="miss"
           aria-label="Mark as missed (1)"
           className="h-14 w-14 rounded-full border-2 border-miss bg-surface text-2xl text-miss hover:bg-miss/10"
         >
@@ -25,6 +26,7 @@ export default function SortControls({ onMiss, onCheck, onUndo, canUndo }: Props
         <button
           type="button"
           onClick={onCheck}
+          data-sort="check"
           aria-label="Mark as checked (2)"
           className="h-14 w-14 rounded-full border-2 border-ok bg-surface text-2xl text-ok hover:bg-ok/10"
         >

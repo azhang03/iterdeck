@@ -11,7 +11,7 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useSessionClock, useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useSessionClock, useStudyMotion, useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as learn from '../study/learn.ts'
 import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
 
@@ -113,6 +113,32 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const [s, setS] = useState(() => initial ?? learn.start(deck, options.groupSize))
   const card = learn.current(s)
   const codeMode = set.code_mode === 1
+  const { target: motionTarget, play } = useStudyMotion(codeMode)
+
+  function sort(checked: boolean) {
+    if (s.phase !== 'round' || !card) return
+    play({ kind: 'next', checked })
+    setS(learn.sort(s, checked))
+  }
+
+  function undo() {
+    const last = s.results.at(-1)
+    if (!last || s.phase === 'done') return
+    play({ kind: 'undo', checked: last.checked })
+    setS(learn.undo)
+  }
+
+  function flip() {
+    if (s.phase !== 'round') return
+    play({ kind: 'flip' })
+    setS(learn.flip)
+  }
+
+  // Another card comes on screen with no sort: a shuffle, or the next group.
+  function swap(change: (state: learn.LearnState) => learn.LearnState) {
+    play({ kind: 'swap' })
+    setS(change)
+  }
 
   // The start of the current group is saved; progress inside the group is not.
   // Dropped when every group is done.
@@ -136,11 +162,11 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
         const t = e.target
         if (t instanceof HTMLButtonElement || t instanceof HTMLAnchorElement) return
         e.preventDefault()
-        if (s.phase === 'debrief') setS(learn.proceed)
-        else if (s.phase === 'round') setS(learn.flip)
+        if (s.phase === 'debrief') swap(learn.proceed)
+        else flip()
       } else if (s.phase === 'round' && (e.key === '1' || e.key === '2')) {
         e.preventDefault()
-        setS(learn.sort(s, e.key === '2'))
+        sort(e.key === '2')
       }
     }
     window.addEventListener('keydown', onKey)
@@ -151,7 +177,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
     <>
       <button
         type="button"
-        onClick={() => setS(learn.shuffle)}
+        onClick={() => swap(learn.shuffle)}
         disabled={!learn.canShuffle(s)}
         title="Shuffle the cards still to come"
         className="rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50"
@@ -168,7 +194,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
   const round = s.phase === 'done' ? undefined : s.passes.length
 
   const finished = (
-    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card'}>
+    <div className={codeMode ? 'text-center' : 'rounded-card border border-line bg-surface p-8 text-center shadow-card motion-safe:animate-pop-in'}>
       <h2 className="mb-2 text-xl font-semibold">All groups done</h2>
       <p className="mb-6 text-muted">Every card was checked.</p>
       <div className="flex justify-center gap-3">
@@ -180,13 +206,13 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
     </div>
   )
 
-  const debrief = <Debrief s={s} options={options} plain={codeMode} onContinue={() => setS(learn.proceed)} onUndo={() => setS(learn.undo)} />
+  const debrief = <Debrief s={s} options={options} plain={codeMode} onContinue={() => swap(learn.proceed)} onUndo={undo} />
 
   const controls = (
     <SortControls
-      onMiss={() => setS(learn.sort(s, false))}
-      onCheck={() => setS(learn.sort(s, true))}
-      onUndo={() => setS(learn.undo)}
+      onMiss={() => sort(false)}
+      onCheck={() => sort(true)}
+      onUndo={undo}
       canUndo={s.results.length > 0}
     />
   )
@@ -222,12 +248,13 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
               card && (
                 <>
                   {solo}
-                  <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(learn.flip)} />
+                  <ProblemPanel card={card} front={options.front} flipped={s.flipped} onFlip={flip} />
                 </>
               )
             )
           }
           footer={s.phase === 'round' ? controls : undefined}
+          panelRef={motionTarget}
         />
       ) : (
         <>
@@ -236,7 +263,7 @@ function Session({ set, deck, initial, initialElapsedMs, options, paused, progre
           {s.phase === 'round' && card && (
             <>
               {solo}
-              <StudyCard card={card} front={options.front} flipped={s.flipped} onFlip={() => setS(learn.flip)} />
+              <StudyCard ref={motionTarget} card={card} front={options.front} flipped={s.flipped} onFlip={flip} />
               {controls}
             </>
           )}
@@ -259,7 +286,7 @@ function Debrief({ s, options, plain = false, onContinue, onUndo }: DebriefProps
       : 'Continue to the next group.'
 
   return (
-    <div className={plain ? '' : 'rounded-card border border-line bg-surface p-8 shadow-card'}>
+    <div className={plain ? '' : 'rounded-card border border-line bg-surface p-8 shadow-card motion-safe:animate-pop-in'}>
       <h2 className="mb-1 text-center text-xl font-semibold">Group {s.groupIndex + 1} done</h2>
       <p className="mb-6 text-center text-muted">
         {firstTry} of {rows.length} on the first try, {s.passes.length} {s.passes.length === 1 ? 'pass' : 'passes'}. {next}

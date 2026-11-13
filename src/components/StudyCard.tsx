@@ -1,15 +1,17 @@
+import type { Ref } from 'react'
 import type { Card } from '../api.ts'
 import { otherSide, sideText, type Side } from '../study/options.ts'
 import CardText from './CardText.tsx'
 
-type Props = { card: Card; front: Side; flipped: boolean; onFlip: () => void }
+type Props = { card: Card; front: Side; flipped: boolean; onFlip: () => void; ref?: Ref<HTMLButtonElement> }
 
 // The card in the middle of a study page. Click or Space flips it.
-export default function StudyCard({ card, front, flipped, onFlip }: Props) {
+export default function StudyCard({ card, front, flipped, onFlip, ref }: Props) {
   const side = flipped ? otherSide(front) : front
   const { text, image } = sideText(card, side)
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onFlip}
       aria-label={`Card, showing ${side}. Flip`}
