@@ -22,10 +22,16 @@ function plain(line: string): string {
 // heading under it when there is one. Cards of one interview question share the
 // first line; the heading ("Follow-up 1: ...") tells them apart.
 export function cardLabel(text: string): string {
+  // Lines of a fenced code block are not text: a `# comment` in Python is no heading.
+  let fenced = false
   const lines = text
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l !== '')
+    .filter((l) => {
+      const fence = l.startsWith('```')
+      if (fence) fenced = !fenced
+      return l !== '' && !fence && !fenced
+    })
   if (lines.length === 0) return '(empty)'
   const title = plain(lines[0])
   const heading = lines.slice(1).find((l) => HEADING.test(l))

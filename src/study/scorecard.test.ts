@@ -18,6 +18,12 @@ describe('cardLabel', () => {
     expect(cardLabel(card)).toBe('Q003 Corroborating reports \u00b7 Follow-up 1: allow duplicates')
   })
 
+  it('does not read a comment in a code block as a heading', () => {
+    const card = '**Q008 Subtitles**\n\n```python\n# Assume this is already implemented.\nrender_subtitle(frame, text)\n```\n\n### Main question\n\nText.'
+    expect(cardLabel(card)).toBe('Q008 Subtitles \u00b7 Main question')
+    expect(cardLabel('```python\nprint(1)\n```')).toBe('(empty)')
+  })
+
   it('skips blank lines and names an empty card', () => {
     expect(cardLabel('\n\n  term  \n')).toBe('term')
     expect(cardLabel('')).toBe('(empty)')
