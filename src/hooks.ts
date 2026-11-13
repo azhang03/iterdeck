@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Card, type SetWithCards, type StudyMode } from './api.ts'
+import { readWatch, runWatch, savedElapsedMs, withElapsed, type Watch } from './study/clock.ts'
 import { DEFAULT_OPTIONS, type StudyOptions } from './study/options.ts'
 
 export type Async<T> = { data: T | null; error: string | null; loading: boolean; reload: () => void }
@@ -137,7 +138,8 @@ export function useCodeSaver(): CodeSaver {
 }
 
 export type ProgressSaver = {
-  save: (state: object) => void
+  // `keepalive` lets the request finish after the page is gone (reload, tab close).
+  save: (state: object, keepalive?: boolean) => void
   clear: () => void
 }
 
@@ -153,13 +155,66 @@ export function useProgressSaver(setId: number, mode: StudyMode): ProgressSaver 
       chain.current = chain.current.then(work).catch(() => {})
     }
     return {
-      save: (state) => {
+      save: (state, keepalive = false) => {
         const json = JSON.stringify(state)
-        queue(json, () => api.sets.saveProgress(setId, mode, JSON.parse(json) as object))
+        queue(json, () => api.sets.saveProgress(setId, mode, JSON.parse(json) as object, { keepalive }))
       },
       clear: () => queue('', () => api.sets.clearProgress(setId, mode)),
     }
   }, [setId, mode])
+}
+
+// What a clock on screen needs: the time now, and whether it still counts.
+export type SessionClock = { read: () => number; running: boolean }
+
+// The session clock, and the save of a study session with its time. `snapshot`
+// is the session's saved position, or null when the session is complete: then
+// the clock stops and the saved session is dropped. The session is saved after
+// every change, and once more when the session ends or the page goes away
+// (reload, tab close), so the saved time includes the time on the last card.
+export function useSessionClock(progress: ProgressSaver, snapshot: object | null, initialMs: number): SessionClock {
+  const [first] = useState<Watch>(() => ({ ms: initialMs, since: Date.now() }))
+  const watch = useRef(first)
+  const read = useCallback(() => readWatch(watch.current, Date.now()), [])
+  const persist = useRef((_keepalive: boolean) => {})
+  const running = snapshot !== null
+
+  // An undo on the last summary opens the session, so the clock can start again.
+  // The browser can keep a page that the user left and show it again on Back.
+  // The page is away from `pagehide` to `pageshow`, so the clock stops for that time.
+  useEffect(() => {
+    const run = (on: boolean) => {
+      watch.current = runWatch(watch.current, on, Date.now())
+    }
+    const onPageHide = () => run(false)
+    const onPageShow = () => run(running)
+    run(running)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [running])
+
+  useEffect(() => {
+    persist.current = (keepalive) => {
+      if (snapshot === null) progress.clear()
+      else progress.save(withElapsed(snapshot, read()), keepalive)
+    }
+    persist.current(false)
+  }, [progress, snapshot, read])
+
+  useEffect(() => {
+    const onPageHide = () => persist.current(true)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      persist.current(false)
+    }
+  }, [])
+
+  return useMemo(() => ({ read, running }), [read, running])
 }
 
 type Resume<S> = (cards: Card[], saved: unknown) => { state: S; options: StudyOptions } | null
@@ -171,6 +226,8 @@ export type StudyPage<S> = {
   sessionKey: number
   // The saved session to continue, for the first session only; null starts fresh.
   initial: S | null
+  // The session time the saved session had; zero for a fresh session.
+  initialElapsedMs: number
   docs: Map<number, string>
   codeSaver: CodeSaver
   progress: ProgressSaver
@@ -192,10 +249,11 @@ export function useStudyPage<S>(setId: number, mode: StudyMode, resume: Resume<S
   const resumed = useMemo(() => (set ? resume(set.cards, set.progress[mode]) : null), [set, mode, resume])
   const options = chosen ?? resumed?.options ?? DEFAULT_OPTIONS
   const initial = sessionKey === 0 && chosen === null ? (resumed?.state ?? null) : null
+  const initialElapsedMs = initial === null ? 0 : savedElapsedMs(set?.progress[mode])
   const restart = useCallback(() => {
     setSessionKey((k) => k + 1)
     docs.clear()
     codeSaver.discard(() => api.sets.clearCode(setId))
   }, [docs, codeSaver, setId])
-  return { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart }
+  return { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart }
 }

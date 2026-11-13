@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
+import Clock from '../components/Clock.tsx'
 import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.tsx'
 import OptionsPanel from '../components/OptionsPanel.tsx'
 import ProblemPanel from '../components/ProblemPanel.tsx'
@@ -10,7 +11,7 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useSessionClock, useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as fc from '../study/flashcards.ts'
 import { deckFor, type StudyOptions } from '../study/options.ts'
 
@@ -18,7 +19,7 @@ export default function Flashcards() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'flashcards', fc.resume)
-  const { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
 
@@ -62,6 +63,7 @@ export default function Flashcards() {
           set={set}
           deck={deck}
           initial={initial}
+          initialElapsedMs={initialElapsedMs}
           options={options}
           paused={optionsOpen}
           progress={progress}
@@ -98,6 +100,7 @@ type SessionProps = {
   set: SetWithCards
   deck: Card[]
   initial: fc.FlashcardsState | null
+  initialElapsedMs: number
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
@@ -106,7 +109,7 @@ type SessionProps = {
   code: CodeState
 }
 
-function Session({ set, deck, initial, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? fc.start(deck))
   const [error, setError] = useState<string | null>(null)
   const card = fc.current(s)
@@ -145,10 +148,16 @@ function Session({ set, deck, initial, options, paused, progress, onOpenOptions,
   }
 
   // The position is saved after every change, and dropped when every card is checked.
-  useEffect(() => {
-    if (fc.done(s)) progress.clear()
-    else progress.save(fc.snapshot(s, options))
-  }, [s, options, progress])
+  const snapshot = useMemo(() => (fc.done(s) ? null : fc.snapshot(s, options)), [s, options])
+  const session = useSessionClock(progress, snapshot, initialElapsedMs)
+
+  // The card clock starts again for each card. No card is on screen at a round summary.
+  const clocks = (
+    <>
+      {!over && card && <Clock key={`${s.round}-${s.index}-${card.id}`} label="Card" />}
+      <Clock label="Session" read={session.read} running={session.running} />
+    </>
+  )
 
   useEffect(() => {
     // In code mode, keys act only when the card side was used last.
@@ -215,7 +224,7 @@ function Session({ set, deck, initial, options, paused, progress, onOpenOptions,
   const controls = <SortControls onMiss={() => sort(false)} onCheck={() => sort(true)} onUndo={undo} canUndo={s.results.length > 0} />
 
   return (
-    <StudyShell set={set} mode="Flashcards" round={s.round} actions={actions} wide={codeMode}>
+    <StudyShell set={set} mode="Flashcards" round={s.round} clocks={clocks} actions={actions} wide={codeMode}>
       <ProgressBar done={s.index} total={s.queue.length} />
       {error && <p className="mb-4 text-sm text-red-600">Could not save a result: {error}</p>}
 

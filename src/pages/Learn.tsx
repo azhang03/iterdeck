@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Card, type SetWithCards } from '../api.ts'
 import { PrimaryButton } from '../components/Button.tsx'
 import { Empty, Status } from '../components/Cards.tsx'
+import Clock from '../components/Clock.tsx'
 import CodeStudyLayout, { type FocusSide } from '../components/CodeStudyLayout.tsx'
 import OptionsPanel from '../components/OptionsPanel.tsx'
 import ProblemPanel from '../components/ProblemPanel.tsx'
@@ -10,7 +11,7 @@ import ProgressBar from '../components/ProgressBar.tsx'
 import SortControls from '../components/SortControls.tsx'
 import StudyCard from '../components/StudyCard.tsx'
 import StudyShell from '../components/StudyShell.tsx'
-import { useStudyPage, type ProgressSaver } from '../hooks.ts'
+import { useSessionClock, useStudyPage, type ProgressSaver } from '../hooks.ts'
 import * as learn from '../study/learn.ts'
 import { deckFor, sideText, type StudyOptions } from '../study/options.ts'
 
@@ -18,7 +19,7 @@ export default function Learn() {
   const { id } = useParams()
   const setId = Number(id)
   const page = useStudyPage(setId, 'learn', learn.resume)
-  const { loaded, options, setOptions, sessionKey, initial, docs, codeSaver, progress, restart } = page
+  const { loaded, options, setOptions, sessionKey, initial, initialElapsedMs, docs, codeSaver, progress, restart } = page
   const [optionsOpen, setOptionsOpen] = useState(false)
   // Code mode state lives here so an options change keeps the code and the active side.
   const [focusSide, setFocusSide] = useState<FocusSide>('card')
@@ -63,6 +64,7 @@ export default function Learn() {
           set={set}
           deck={deck}
           initial={initial}
+          initialElapsedMs={initialElapsedMs}
           options={options}
           paused={optionsOpen}
           progress={progress}
@@ -98,6 +100,7 @@ type SessionProps = {
   set: SetWithCards
   deck: Card[]
   initial: learn.LearnState | null
+  initialElapsedMs: number
   options: StudyOptions
   paused: boolean
   progress: ProgressSaver
@@ -106,18 +109,23 @@ type SessionProps = {
   code: CodeState
 }
 
-function Session({ set, deck, initial, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
+function Session({ set, deck, initial, initialElapsedMs, options, paused, progress, onOpenOptions, onRestart, code }: SessionProps) {
   const [s, setS] = useState(() => initial ?? learn.start(deck, options.groupSize))
   const card = learn.current(s)
   const codeMode = set.code_mode === 1
 
   // The start of the current group is saved; progress inside the group is not.
   // Dropped when every group is done.
-  useEffect(() => {
-    if (s.phase === 'done') progress.clear()
-    else progress.save(learn.snapshot(s, options))
-  }, [s, options, progress])
+  const snapshot = useMemo(() => (s.phase === 'done' ? null : learn.snapshot(s, options)), [s, options])
+  const session = useSessionClock(progress, snapshot, initialElapsedMs)
 
+  // The card clock starts again for each card. No card is on screen at a debrief.
+  const clocks = (
+    <>
+      {s.phase === 'round' && card && <Clock key={`${s.groupIndex}-${s.index}-${card.id}`} label="Card" />}
+      <Clock label="Session" read={session.read} running={session.running} />
+    </>
+  )
 
   useEffect(() => {
     // In code mode, keys act only when the card side was used last.
@@ -190,6 +198,7 @@ function Session({ set, deck, initial, options, paused, progress, onOpenOptions,
       set={set}
       mode={s.phase === 'done' ? 'Learn' : `Learn · Group ${s.groupIndex + 1} of ${groups.length}`}
       round={round}
+      clocks={clocks}
       actions={actions}
       wide={codeMode}
     >
