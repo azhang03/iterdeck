@@ -68,7 +68,8 @@ export const api = {
     update: (id: number, patch: { title?: string; folder_id?: number | null; code_mode?: boolean; language?: Language | null }) =>
       request<CardSet>('PATCH', `/api/sets/${id}`, patch),
     replaceCards: (id: number, cards: CardInput[]) => request<SetWithCards>('PUT', `/api/sets/${id}/cards`, cards),
-    saveProgress: (id: number, mode: StudyMode, state: object) => request<void>('PUT', `/api/sets/${id}/progress/${mode}`, state),
+    saveProgress: (id: number, mode: StudyMode, state: object, opts: RequestOptions = {}) =>
+      request<void>('PUT', `/api/sets/${id}/progress/${mode}`, state, opts),
     clearProgress: (id: number, mode: StudyMode) => request<void>('DELETE', `/api/sets/${id}/progress/${mode}`),
     clearCode: (id: number) => request<void>('DELETE', `/api/sets/${id}/code`),
     remove: (id: number) => request<void>('DELETE', `/api/sets/${id}`),
