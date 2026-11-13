@@ -12,6 +12,7 @@ import {
 } from '../run/runner.ts'
 import { SqlRunner, type Table } from '../run/sql.ts'
 import { LANGUAGES } from '../study/languages.ts'
+import { previousInSet } from '../study/order.ts'
 import type { TestTally } from '../study/scorecard.ts'
 import CodeEditor from './CodeEditor.tsx'
 import OutputPanel, { type OutputTab } from './OutputPanel.tsx'
@@ -40,7 +41,8 @@ const toolButton = 'rounded px-3 py-1 text-sm hover:bg-hover disabled:opacity-50
 // a run toolbar and an output panel on the right. The side used last (by mouse
 // or keyboard focus) gets the keys; an outline marks it.
 export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, docs, onCodeChange, panelKey, panel, footer, panelRef, onTested }: Props) {
-  const [clearToken, setClearToken] = useState(0)
+  // The last request to replace the editor's text (Clear, Pull). The id makes each request new.
+  const [replacement, setReplacement] = useState<{ id: number; text: string } | null>(null)
   const runner = useRef<Runner | null>(null)
   const [status, setStatus] = useState<PrepareStatus>('idle')
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -168,6 +170,15 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  function replaceCode(text: string) {
+    setReplacement((r) => ({ id: (r?.id ?? 0) + 1, text }))
+  }
+
+  // Pull: the code of the card before this one in the set, so a follow-up can
+  // build on the answer to the part before it. The order is the set's, not the session's.
+  const previous = card ? previousInSet(set.cards, card.id) : null
+  const previousCode = previous ? codeOf(previous.id) : ''
+
   function codeChanged(cardId: number, text: string) {
     onCodeChange(cardId, text)
     setDiagnostics((d) => (d ? null : d))
@@ -233,8 +244,25 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
                   Run tests
                 </button>
               )}
-              <button type="button" onClick={() => setClearToken((t) => t + 1)} className={toolButton}>
+              <button type="button" onClick={() => replaceCode('')} className={toolButton}>
                 Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => replaceCode(previousCode)}
+                disabled={previousCode === ''}
+                title={
+                  !card
+                    ? undefined
+                    : !previous
+                      ? 'This is the first card of the set'
+                      : previousCode === ''
+                        ? 'The card before this one has no code'
+                        : 'Replace this code with the code of the card before this one in the set. Undo brings yours back.'
+                }
+                className={toolButton}
+              >
+                Pull from previous card
               </button>
               <span className={`ml-auto text-xs ${status === 'failed' ? 'text-bad' : 'text-muted'}`} role="status">
                 {statusText}
@@ -248,7 +276,7 @@ export default function CodeStudyLayout({ set, card, focusSide, onFocusSide, doc
                 onChange={codeChanged}
                 onRun={() => void run()}
                 onTest={() => void test()}
-                clearToken={clearToken}
+                replacement={replacement}
                 diagnostics={diagnostics}
               />
             </div>
